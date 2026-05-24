@@ -125,7 +125,8 @@ export function generateTaxReport(
 
   if (!options?.skipFx) {
     const fxEngine = new FxFifoEngine();
-    const autoConvert = FxFifoEngine.detectAutoConvert(statement.trades);
+    //const autoConvert = FxFifoEngine.detectAutoConvert(statement.trades);
+    const autoConvert = false;
     const tradeFxEvents = FxFifoEngine.extractFxEvents(statement.trades, rateMap);
     const cashFxEvents = FxFifoEngine.extractCashFxEvents(statement.cashTransactions, rateMap, autoConvert);
     const allFxDisposals = fxEngine.processEvents([...tradeFxEvents, ...cashFxEvents]);

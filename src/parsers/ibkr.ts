@@ -130,6 +130,18 @@ export function parseIbkrFlexXml(xml: string): FlexStatement {
 }
 
 function mapTrade(raw: Record<string, string>): Trade {
+  // Detección de CONVERSION DIVISA: tradeType "ExchTrade" indica conversión (ej: EUR → USD)
+  // Inconsistencia: IBKR la codifica como currency="USD" y tipo ¨SELL¨, pero las cantidades están expresadas en EUR.
+  // En este caso, forzamos buySell a "BUY" para que el sistema lo trate como compra de moneda extranjera
+  // y la cantidad en FCY se obtiene del campo Proceeds, que es el importe en moneda base (EUR) convertido a USD.
+
+  const isConversion: boolean = (raw.transactionType === "ExchTrade" && raw.assetCategory === "CASH") ? true : false;
+  if (isConversion) {
+    raw.buySell = "BUY";
+    raw.quantity = raw.proceeds ?? "0";
+  }
+  //TODO detección de autofx con brokerageOrderID
+
   return {
     tradeID: raw.tradeID ?? "",
     accountId: raw.accountId ?? "",
