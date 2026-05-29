@@ -248,6 +248,7 @@ function parseLightyearCsv(lines: string[]): Statement {
         commission: "0",
         taxes: "0",
         multiplier: "1",
+        brokerSource: "LIGHTYEAR"
       });
       continue;
     }
@@ -290,6 +291,7 @@ function parseLightyearCsv(lines: string[]): Statement {
       commission: (feeDec.isZero() || isSell) ? "0" : feeDec.neg().toString(),
       taxes: "0",
       multiplier: "1",
+      brokerSource: "LIGHTYEAR",
     });
   }
 

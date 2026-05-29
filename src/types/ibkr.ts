@@ -59,6 +59,7 @@ export interface Trade {
   underlyingSymbol?: string;
   /** Underlying ISIN for derivatives */
   underlyingIsin?: string;
+  brokerageOrderID?: string;
 }
 
 export interface CashTransaction {
@@ -73,6 +74,7 @@ export interface CashTransaction {
   amount: string;
   fxRateToBase: string;
   type: CashTransactionType;
+  brokersource?: string;
 }
 
 export type CashTransactionType =
@@ -100,6 +102,7 @@ export interface CorporateAction {
   amount: string;
   type: string;
   actionDescription: string;
+  brokerSource?: string;
 }
 
 export interface OpenPosition {
