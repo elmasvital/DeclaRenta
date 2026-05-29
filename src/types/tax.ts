@@ -177,6 +177,7 @@ export interface FxLot {
   costPerUnit: Decimal;
   /** Total EUR cost for this lot */
   costInEur: Decimal;
+  brokerSource?: string;
 }
 
 /** What triggered an FX disposal */

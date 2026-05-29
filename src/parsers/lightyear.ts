@@ -123,6 +123,28 @@ function parseLightyearCsv(lines: string[]): Statement {
   const trades: Trade[] = [];
   const cashTransactions: CashTransaction[] = [];
 
+  // Pre-scan: collect FX conversion fees by timestamp.
+  // Lightyear emits conversion pairs (one leg per currency). The fee can appear
+  // on either leg (often on the EUR leg, which we skip). Group by timestamp
+  // and extract the fee so it can be applied to the non-EUR trade.
+  const conversionFees = new Map<string, { fee: string; currency: string }>();
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i]!.trim();
+    if (!line) continue;
+    const fields = parseCsvLine(line, ",");
+    const txType = (fields[cols.type] ?? "").trim().toLowerCase();
+    if (txType !== "conversion") continue;
+    const feeVal = parseNumber(fields[cols.fee] ?? "0");
+    const feeDec = new Decimal(feeVal);
+    if (feeDec.isZero()) continue;
+    const dateRaw = (fields[cols.date] ?? "").trim();
+    const ccy = (fields[cols.ccy] ?? "EUR").trim();
+    const existing = conversionFees.get(dateRaw);
+    if (!existing || feeDec.abs().greaterThan(new Decimal(existing.fee).abs())) {
+      conversionFees.set(dateRaw, { fee: feeDec.abs().toString(), currency: ccy });
+    }
+  }
+
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i]!.trim();
     if (!line) continue;
@@ -166,6 +188,7 @@ function parseLightyearCsv(lines: string[]): Statement {
         amount: grossDec.toString(),
         fxRateToBase: "1",
         type: "Dividends",
+        brokersource: "Lightyear",
       });
 
       // Withholding tax (if present)
@@ -183,6 +206,7 @@ function parseLightyearCsv(lines: string[]): Statement {
           amount: taxDec.neg().abs().neg().toString(),
           fxRateToBase: "1",
           type: "Withholding Tax",
+          brokersource: "Lightyear",
         });
       }
       continue;
@@ -208,6 +232,7 @@ function parseLightyearCsv(lines: string[]): Statement {
         amount: amountDec.toString(),
         fxRateToBase: "1",
         type: "Broker Interest Received",
+        brokersource: "Lightyear",
       });
       continue;
     }
@@ -223,6 +248,11 @@ function parseLightyearCsv(lines: string[]): Statement {
 
       const absDec = netDec.abs();
       const isFxBuy = netDec.greaterThan(0);
+
+      // Look up commission from paired leg (fee may be on the EUR row we skip)
+      const pairedFee = conversionFees.get(dateRaw);
+      const commissionVal = pairedFee ? pairedFee.fee : new Decimal(fee).abs().toString();
+      const commCurrency = pairedFee ? pairedFee.currency : currency;
 
       trades.push({
         tradeID: `lightyear-fx-${reference || `${tradeDate}-${currency}-${i}`}`,
@@ -244,11 +274,11 @@ function parseLightyearCsv(lines: string[]): Statement {
         buySell: isFxBuy ? "BUY" : "SELL",
         openCloseIndicator: isFxBuy ? "O" : "C",
         exchange: "LIGHTYEAR",
-        commissionCurrency: currency,
-        commission: "0",
+        commissionCurrency: commCurrency,
+        commission: `-${commissionVal}`,
         taxes: "0",
         multiplier: "1",
-        brokerSource: "LIGHTYEAR"
+        brokerSource: "Lightyear",
       });
       continue;
     }
@@ -291,7 +321,7 @@ function parseLightyearCsv(lines: string[]): Statement {
       commission: (feeDec.isZero() || isSell) ? "0" : feeDec.neg().toString(),
       taxes: "0",
       multiplier: "1",
-      brokerSource: "LIGHTYEAR",
+      brokerSource: "Lightyear",
     });
   }
 
