@@ -81,6 +81,26 @@ export function parseIbkrFlexXml(xml: string): FlexStatement {
     cashBalances.push(...ensureArray(stmt.CashReport?.CashReportCurrency).map(mapCashBalance));
     optionExercises.push(...parseOptionEaeRows(ensureArray(stmt.OptionEAE?.OptionEAE) as Record<string, string>[]));
   }
+  const afxPrefixes = new Set<string>();
+
+  for (const trade of trades) {
+    if (trade.notes?.includes("AFx") && trade.brokerageOrderID) {
+      const prefix = trade.brokerageOrderID.split(".").slice(0, 3).join(".");
+      afxPrefixes.add(prefix);
+    }
+  }
+
+  if (afxPrefixes.size > 0) {
+    for (const trade of trades) {
+      if (trade.notes?.includes("AFx") || !trade.brokerageOrderID) continue;
+
+      const prefix = trade.brokerageOrderID.split(".").slice(0, 3).join(".");
+      if (afxPrefixes.has(prefix)) {
+        trade.notes = trade.notes ? `${trade.notes}; AFx` : "AFx";
+        console.log(`Añadida nota AFx al trade ${trade.tradeID} ${trade.symbol} con brokerageOrderID ${trade.brokerageOrderID} por coincidencia de prefijo ${prefix} con otros trades marcados como AFx.`);
+      }
+    }
+  }
 
   // Detect important sections present in XML but not parsed
   const parserWarnings: string[] = [];
@@ -111,6 +131,8 @@ export function parseIbkrFlexXml(xml: string): FlexStatement {
   const accountId = statements.length === 1
     ? (first.accountId ?? "")
     : statements.map((s: Record<string, string>) => s.accountId ?? "").filter(Boolean).join(",");
+
+  console.log(`Parsed IBKR Flex Query for account(s): ${accountId} with ${trades.length} trades, ${cashTransactions.length} cash transactions, ${corporateActions.length} corporate actions, ${openPositions.length} open positions, ${securitiesInfo.length} securities info entries, ${cashBalances.length} cash balances and ${optionExercises.length} option exercises.`);
 
   return {
     accountId,
@@ -173,6 +195,8 @@ function mapTrade(raw: Record<string, string>): Trade {
     expiry: raw.expiry || undefined,
     underlyingSymbol: raw.underlyingSymbol || undefined,
     underlyingIsin: raw.underlyingIsin || undefined,
+    brokerageOrderID: raw.brokerageOrderID || undefined,
+    brokerSource: "IBKR",
   };
 }
 
