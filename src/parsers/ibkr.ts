@@ -156,13 +156,15 @@ function mapTrade(raw: Record<string, string>): Trade {
   // Inconsistencia: IBKR la codifica como currency="USD" y tipo ¨SELL¨, pero las cantidades están expresadas en EUR.
   // En este caso, forzamos buySell a "BUY" para que el sistema lo trate como compra de moneda extranjera
   // y la cantidad en FCY se obtiene del campo Proceeds, que es el importe en moneda base (EUR) convertido a USD.
+  let realPriceEUR: string | undefined;
 
   const isConversion: boolean = (raw.transactionType === "ExchTrade" && raw.assetCategory === "CASH") ? true : false;
   if (isConversion) {
     raw.buySell = "BUY";
+    //preservamos realPriceEUR
+    realPriceEUR = raw.quantity ?? undefined;
     raw.quantity = raw.proceeds ?? "0";
   }
-  //TODO detección de autofx con brokerageOrderID
 
   return {
     tradeID: raw.tradeID ?? "",
@@ -186,7 +188,7 @@ function mapTrade(raw: Record<string, string>): Trade {
     openCloseIndicator: (raw.openCloseIndicator ?? "O") as Trade["openCloseIndicator"],
     exchange: raw.exchange ?? "",
     commissionCurrency: raw.commissionCurrency ?? "",
-    commission: raw.commission ?? "0",
+    commission: raw.ibCommission ?? "0",
     taxes: raw.taxes ?? "0",
     multiplier: raw.multiplier ?? "1",
     notes: raw.notes || undefined,
@@ -197,6 +199,7 @@ function mapTrade(raw: Record<string, string>): Trade {
     underlyingIsin: raw.underlyingIsin || undefined,
     brokerageOrderID: raw.brokerageOrderID || undefined,
     brokerSource: "IBKR",
+    realPriceEUR: realPriceEUR || undefined,
   };
 }
 
@@ -213,6 +216,7 @@ function mapCashTransaction(raw: Record<string, string>): CashTransaction {
     amount: raw.amount ?? "0",
     fxRateToBase: raw.fxRateToBase ?? "1",
     type: (raw.type ?? "") as CashTransaction["type"],
+    brokersource: "IBKR",
   };
 }
 
@@ -230,6 +234,7 @@ function mapCorporateAction(raw: Record<string, string>): CorporateAction {
     amount: raw.amount ?? "0",
     type: raw.type ?? "",
     actionDescription: raw.actionDescription ?? "",
+    brokerSource: "IBKR",
   };
 }
 

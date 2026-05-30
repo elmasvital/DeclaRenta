@@ -322,6 +322,7 @@ function parseLightyearCsv(lines: string[]): Statement {
       taxes: "0",
       multiplier: "1",
       brokerSource: "Lightyear",
+      realPriceEUR: (netDec.abs().toString() === "0" ? grossDec : netDec).mul(1).toFixed(2), // Placeholder for real FX conversion if needed
     });
   }
 

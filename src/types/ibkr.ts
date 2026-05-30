@@ -60,6 +60,7 @@ export interface Trade {
   /** Underlying ISIN for derivatives */
   underlyingIsin?: string;
   brokerageOrderID?: string;
+  realPriceEUR?: string;
 }
 
 export interface CashTransaction {

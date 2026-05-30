@@ -24,6 +24,7 @@ export interface FxEvent {
   /** Commission in EUR (positive = cost paid). Increases cost basis on BUY, reduces proceeds on SELL. */
   commissionEur?: Decimal;
   brokerSource?: string;
+  realTotalPriceEUR?: Decimal;
 }
 
 export class FxFifoEngine {
@@ -99,7 +100,10 @@ export class FxFifoEngine {
 
       const date = normalizeDate(trade.settlementDate || trade.tradeDate);
       const ecbRate = getEcbRate(rateMap, date, trade.currency);
-      const quantity = new Decimal(trade.quantity).abs();
+      // const quantity = new Decimal(trade.quantity).abs();
+      const realPriceEUR = trade.realPriceEUR ? new Decimal(trade.realPriceEUR).abs() : undefined;
+
+
 
       // Commission increases cost basis (BUY) or reduces proceeds (SELL)
       let commissionEur: Decimal | undefined;
@@ -114,6 +118,11 @@ export class FxFifoEngine {
         }
       }
 
+      let realTotalPriceEUR: Decimal | undefined;
+      if (realPriceEUR) {
+        realTotalPriceEUR = realPriceEUR.plus(commissionEur || 0);
+      }
+
       if (trade.assetCategory === "CASH") {
         // Direct forex trade — skip FXCONV (automatic conversions)
         // Desactivada la detección de Fxconv
@@ -121,9 +130,9 @@ export class FxFifoEngine {
 
         const quantity = new Decimal(trade.quantity).abs();
         if (trade.buySell === "BUY") {
-          events.push({ date, currency: trade.currency, quantity, ecbRate, trigger: "conversion", brokerSource: trade.brokerSource, commissionEur: commissionEur });
+          events.push({ date, currency: trade.currency, quantity, ecbRate, trigger: "conversion", brokerSource: trade.brokerSource, commissionEur: commissionEur, realTotalPriceEUR: realTotalPriceEUR });
         } else {
-          events.push({ date, currency: trade.currency, quantity: quantity.negated(), ecbRate, trigger: "conversion", brokerSource: trade.brokerSource, commissionEur: commissionEur });
+          events.push({ date, currency: trade.currency, quantity: quantity.negated(), ecbRate, trigger: "conversion", brokerSource: trade.brokerSource, commissionEur: commissionEur, realTotalPriceEUR: realTotalPriceEUR });
         }
       } else if (trade.assetCategory !== "WAR") {
         // Multi-currency account: securities trade = implicit FX event
@@ -187,20 +196,23 @@ export class FxFifoEngine {
     return events;
   }
 
-  /** Detect FXCONV (automatic broker conversions for settlement) */
-  private static isFxconv(trade: Trade): boolean {
-    const desc = (trade.description || "").toUpperCase();
-    const exch = (trade.exchange || "").toUpperCase();
-    const notes = (trade.notes || "").toUpperCase().split(";");
-    return desc.includes("FXCONV") || desc.includes("CASH RECEIPTS") || desc.includes("CASH DISBURSEMENTS")
-      || exch === "FXCONV" || notes.includes("AFX");
-  }
+  //DESACTIVADO
+  // /** Detect FXCONV (automatic broker conversions for settlement) */
+  // private static isFxconv(trade: Trade): boolean {
+  //   const desc = (trade.description || "").toUpperCase();
+  //   const exch = (trade.exchange || "").toUpperCase();
+  //   const notes = (trade.notes || "").toUpperCase().split(";");
+  //   return desc.includes("FXCONV") || desc.includes("CASH RECEIPTS") || desc.includes("CASH DISBURSEMENTS")
+  //     || exch === "FXCONV" || notes.includes("AFX");
+  // }
 
   private addLot(event: FxEvent): void {
     // Commission increases the EUR cost of acquiring the lot
     const baseCost = event.quantity.mul(event.ecbRate);
     const totalCost = event.commissionEur ? baseCost.plus(event.commissionEur) : baseCost;
     const costPerUnit = totalCost.div(event.quantity);
+
+
 
     const lot: FxLot = {
       id: `FX-${this.nextLotId++}`,
@@ -209,6 +221,8 @@ export class FxFifoEngine {
       quantity: event.quantity,
       costPerUnit,
       costInEur: totalCost,
+      brokerSource: event.brokerSource,
+      realTotalPriceEUR: event.realTotalPriceEUR,
     };
 
     if (!this.lots.has(event.currency)) {
