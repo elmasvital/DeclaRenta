@@ -207,9 +207,10 @@ export class FxFifoEngine {
   // }
 
   private addLot(event: FxEvent): void {
-    // Commission increases the EUR cost of acquiring the lot
-    const baseCost = event.quantity.mul(event.ecbRate);
-    const totalCost = event.commissionEur ? baseCost.plus(event.commissionEur) : baseCost;
+    // // Commission increases the EUR cost of acquiring the lot
+    // const baseCost = event.quantity.mul(event.ecbRate);
+    // const totalCost = event.commissionEur ? baseCost.plus(event.commissionEur) : baseCost;
+    const totalCost = event.realTotalPriceEUR ? event.realTotalPriceEUR : (event.quantity.mul(event.ecbRate).plus(event.commissionEur || 0));
     const costPerUnit = totalCost.div(event.quantity);
 
 
@@ -229,7 +230,7 @@ export class FxFifoEngine {
       this.lots.set(event.currency, []);
     }
     this.lots.get(event.currency)!.push(lot);
-    console.log(`Add ${lot.id} ${lot.quantity.toFixed(2)} ${lot.costPerUnit.toFixed(2)} ${event.currency} N.lotes: ${this.lots.get(event.currency)!.length} total$ ${this.lots.get(event.currency)!.reduce((sum, l) => sum.plus(l.quantity), new Decimal(0)).toFixed(2)}, ${event.currency}, ${event.date}, ${event.brokerSource}`);
+    console.log(`Add ${lot.id} ${lot.quantity.toFixed(3)} ${event.currency} ${lot.costPerUnit.toFixed(3)} ${totalCost.toFixed(3)} EUR N.lotes: ${this.lots.get(event.currency)!.length} total$ ${this.lots.get(event.currency)!.reduce((sum, l) => sum.plus(l.quantity), new Decimal(0)).toFixed(2)}, ${event.currency}, ${event.date}, ${event.brokerSource}`);
   }
 
   private consumeLots(event: FxEvent): void {
@@ -272,7 +273,9 @@ export class FxFifoEngine {
       }
       const costBasisEur = consumed.mul(lot.costPerUnit);
       const holdingDays = daysBetween(lot.acquireDate, event.date);
-      console.log(`Consumo ${consumed.toFixed(2)} ${event.currency} de lote ${lot.id} f.adqu ${lot.acquireDate} cost ${costBasisEur.toFixed(2)} EUR, proceeds ${proceedsEur.toFixed(2)} EUR, holding period ${holdingDays} days, trigger ${event.trigger}`);
+      console.log(`Consumo ${consumed.toFixed(3)} ${event.currency} de lote ${lot.id} ` +
+                  `f.adqu ${lot.acquireDate} cost ${costBasisEur.toFixed(3)} EUR, proceeds ` +
+                  `${proceedsEur.toFixed(3)} EUR, hold ${holdingDays} days, ${event.trigger}`);
       this.disposals.push({
         currency: event.currency,
         disposeDate: event.date,

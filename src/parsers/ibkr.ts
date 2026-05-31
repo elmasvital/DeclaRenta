@@ -187,7 +187,7 @@ function mapTrade(raw: Record<string, string>): Trade {
     buySell: (raw.buySell ?? "BUY") as Trade["buySell"],
     openCloseIndicator: (raw.openCloseIndicator ?? "O") as Trade["openCloseIndicator"],
     exchange: raw.exchange ?? "",
-    commissionCurrency: raw.commissionCurrency ?? "",
+    commissionCurrency: raw.ibCommissionCurrency ?? "",
     commission: raw.ibCommission ?? "0",
     taxes: raw.taxes ?? "0",
     multiplier: raw.multiplier ?? "1",
