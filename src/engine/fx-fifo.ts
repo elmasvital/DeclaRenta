@@ -1,10 +1,11 @@
 /**
- * FX FIFO engine — tracks currency lots per Art. 37.1.l LIRPF.
+ * Motor FX FIFO — realiza el seguimiento de lotes de divisas según el Art. 37.1.l LIRPF.
  *
- * Each EUR→FCY conversion creates a lot; each FCY disposal (conversion
- * back to EUR, or spending FCY on stock purchases) consumes lots via FIFO.
- * DGT V2324-10 confirms FIFO applies to foreign currency holdings.
+ * Cada conversión EUR→divisa extranjera (FCY) crea un lote; cada disposición de FCY
+ * (conversión de vuelta a EUR o gasto de FCY en compras de acciones) consume lotes mediante FIFO.
+ * La DGT V2324-10 confirma que el FIFO se aplica a las tenencias de moneda extranjera.
  */
+
 
 import Decimal from "decimal.js";
 import type { FxLot, FxDisposal, FxTrigger, TaxMessage } from "../types/tax.js";
@@ -13,50 +14,56 @@ import type { EcbRateMap } from "../types/ecb.js";
 import { getEcbRate } from "./ecb.js";
 import { daysBetween, normalizeDate } from "./dates.js";
 
+
 export interface FxEvent {
   date: string;
   currency: string;
-  /** Positive = acquiring FCY (EUR→FCY), Negative = disposing FCY (FCY→EUR or FCY spent) */
+  /** Positivo = adquisición de FCY (EUR→FCY), Negativo = disposición de FCY (FCY→EUR o gasto de FCY) */
   quantity: Decimal;
-  /** EUR rate at event time (EUR per 1 FCY) */
+  /** Tipo de cambio EUR en el momento del evento (EUR por 1 FCY) */
   ecbRate: Decimal;
   trigger: FxTrigger;
-  /** Commission in EUR (positive = cost paid). Increases cost basis on BUY, reduces proceeds on SELL. */
+  /** Comisión en EUR (positivo = coste pagado). Aumenta la base imponible en COMPRA, reduce los ingresos en VENTA. */
   commissionEur?: Decimal;
   brokerSource?: string;
   realTotalPriceEUR?: Decimal;
 }
+
 
 export class FxFifoEngine {
   private lots: Map<string, FxLot[]> = new Map();
   private disposals: FxDisposal[] = [];
   private nextLotId = 1;
   warnings: string[] = [];
-  /** Structured messages with severity, hint, and context */
+  /** Mensajes estructurados con severidad, sugerencia y contexto */
   messages: TaxMessage[] = [];
+
 
   private emit(msg: TaxMessage): void {
     this.messages.push(msg);
     this.warnings.push(msg.message);
   }
 
+
   private fxMissing: Map<string, { count: number; totalQty: Decimal }> = new Map();
 
+
   /**
-   * Process FX events extracted from trades.
-   * CASH trades with assetCategory="CASH" that represent actual forex conversions
-   * (not automatic FXCONV) generate FX lots and disposals.
+   * Procesa eventos FX extraídos de las operaciones.
+   * Las operaciones CASH con assetCategory="CASH" que representan conversiones de divisas reales
+   * (no FXCONV automáticas) generan lotes y disposiciones de FX.
    */
   processEvents(events: FxEvent[]): FxDisposal[] {
     this.fxMissing.clear();
     const sorted = [...events].sort((a, b) => {
       const cmp = a.date.localeCompare(b.date);
       if (cmp !== 0) return cmp;
-      // Same date: acquisitions (positive qty) before disposals (negative qty)
+      // Misma fecha: adquisiciones (cantidad positiva) antes que disposiciones (cantidad negativa)
       const aPhase = a.quantity.greaterThan(0) ? 0 : 1;
       const bPhase = b.quantity.greaterThan(0) ? 0 : 1;
       return aPhase - bPhase;
     });
+
 
     for (const event of sorted) {
       if (event.currency === "EUR") continue;
@@ -68,35 +75,41 @@ export class FxFifoEngine {
       }
     }
 
+
     for (const [currency, { count, totalQty }] of this.fxMissing) {
       this.emit({ id: "fx.missing_prior_lots", severity: "info", message: `⚠ ${count} disposiciones de ${currency} sin lotes previos suficientes (total: ${totalQty.toFixed(2)} ${currency}). Posible adquisición anterior al período declarado — ganancia FX asumida = 0.`, hint: "La adquisición de esta divisa fue anterior al periodo del Flex Query. Se asume ganancia FX = 0 (tratamiento conservador).", context: { currency, count: count.toString(), totalQuantity: totalQty.toFixed(2) } });
     }
 
+
     return this.disposals;
   }
 
+
   /**
-     * Extract FX events from trades.
+     * Extrae eventos FX de las operaciones.
      *
-     * Two sources of FX events:
-     * 1. CASH trades (assetCategory=CASH): direct forex conversions
-     *    - BUY CASH in USD = acquiring USD (add lot)
-     *    - SELL CASH in USD = disposing USD (consume lots)
-     * 2. Securities trades in non-EUR (ONLY in multi-currency accounts):
-     *    - BUY stock in USD = spending USD (dispose FCY lots)
-     *    - SELL stock in USD = receiving USD (add FCY lot)
+     * Dos fuentes de eventos FX:
+     * 1. Operaciones CASH (assetCategory=CASH): conversiones directas de divisas
+     *    - COMPRA CASH en USD = adquisición de USD (añadir lote)
+     *    - VENTA CASH en USD = disposición de USD (consumir lotes)
+     * 2. Operaciones de valores en divisa distinta a EUR (SOLO en cuentas multidivisa):
+     *    - COMPRA acciones en USD = gasto de USD (disponer lotes de FCY)
+     *    - VENTA acciones en USD = recepción de USD (añadir lote de FCY)
      *
-     * Auto-convert accounts: only manual CASH conversions generate FX events.
-     * Stock trades are settled instantly via FXCONV — no FX exposure.
+     * Cuentas con conversión automática: solo las conversiones CASH manuales generan eventos FX.
+     * Las operaciones de acciones se liquidan al instante mediante FXCONV — sin exposición FX.
      */
+
 
   static extractFxEvents(trades: Trade[], rateMap: EcbRateMap): FxEvent[] {
     const events: FxEvent[] = [];
+
 
     for (const trade of trades) {
       if (trade.currency === "EUR") continue;
       //if (trade.assetCategory !== "CASH") continue;
       //if (FxFifoEngine.isFxconv(trade)) continue;
+
 
       const date = normalizeDate(trade.settlementDate || trade.tradeDate);
       const ecbRate = getEcbRate(rateMap, date, trade.currency);
@@ -105,7 +118,8 @@ export class FxFifoEngine {
 
 
 
-      // Commission increases cost basis (BUY) or reduces proceeds (SELL)
+
+      // La comisión aumenta la base de coste (COMPRA) o reduce los ingresos (VENTA)
       let commissionEur: Decimal | undefined;
       const commAbs = new Decimal(trade.commission).abs();
       if (commAbs.greaterThan(0)) {
@@ -118,15 +132,18 @@ export class FxFifoEngine {
         }
       }
 
+
       let realTotalPriceEUR: Decimal | undefined;
       if (realPriceEUR) {
         realTotalPriceEUR = realPriceEUR.plus(commissionEur || 0);
       }
 
+
       if (trade.assetCategory === "CASH") {
-        // Direct forex trade — skip FXCONV (automatic conversions)
+        // Operación de divisa directa — saltar FXCONV (conversiones automáticas)
         // Desactivada la detección de Fxconv
         //if (FxFifoEngine.isFxconv(trade)) continue;
+
 
         const quantity = new Decimal(trade.quantity).abs();
         if (trade.buySell === "BUY") {
@@ -135,17 +152,20 @@ export class FxFifoEngine {
           events.push({ date, currency: trade.currency, quantity: quantity.negated(), ecbRate, trigger: "conversion", brokerSource: trade.brokerSource, commissionEur: commissionEur, realTotalPriceEUR: realTotalPriceEUR });
         }
       } else if (trade.assetCategory !== "WAR") {
-        // Multi-currency account: securities trade = implicit FX event
+        // Cuenta multidivisa: operación de valores = evento FX implícito
         const tradeMoney = new Decimal(trade.tradeMoney).abs();
         if (tradeMoney.isZero()) continue;
 
+
         if (trade.buySell === "BUY") {
           events.push({ date, currency: trade.currency, quantity: tradeMoney.negated(), ecbRate, trigger: "stock_purchase", brokerSource: trade.brokerSource });
-        } else {
+        }
+        else {
           events.push({ date, currency: trade.currency, quantity: tradeMoney, ecbRate, trigger: "stock_sale", brokerSource: trade.brokerSource });
         }
 
-        // Commission also consumes FCY (paid in commissionCurrency)
+
+        // La comisión también consume FCY (pagada en commissionCurrency)
         const commission = new Decimal(trade.commission).abs();
         if (commission.greaterThan(0) && trade.commissionCurrency !== "EUR") {
           const commRate = getEcbRate(rateMap, date, trade.commissionCurrency);
@@ -154,37 +174,48 @@ export class FxFifoEngine {
       }
     }
 
+
     return events;
   }
 
+
   /**
-   * Extract FX events from cash transactions (dividends, interest).
+   * Extrae eventos FX de transacciones de efectivo (dividendos, intereses).
    *
-   * Dividends/interest received in FCY create acquisition lots;
-   * withholding tax and fees paid in FCY consume lots.
+   * Los dividendos/intereses recibidos en FCY crean lotes de adquisición;
+   * la retención de impuestos y comisiones pagadas en FCY consumen lotes.
    */
   static extractCashFxEvents(cashTransactions: CashTransaction[], rateMap: EcbRateMap): FxEvent[] {
 
+
     const events: FxEvent[] = [];
+
 
     for (const tx of cashTransactions) {
       if (tx.currency === "EUR") continue;
 
+
       const amount = new Decimal(tx.amount);
       if (amount.isZero()) continue;
+
 
       const date = normalizeDate(tx.settleDate || tx.dateTime);
       const ecbRate = getEcbRate(rateMap, date, tx.currency);
 
+
       if (tx.type === "Dividends" || tx.type === "Payment In Lieu Of Dividends") {
         events.push({ date, currency: tx.currency, quantity: amount.abs(), ecbRate, trigger: "dividend" });
-      } else if (tx.type === "Withholding Tax") {
+      }
+      else if (tx.type === "Withholding Tax") {
         events.push({ date, currency: tx.currency, quantity: amount.abs().negated(), ecbRate, trigger: "dividend" });
-      } else if (tx.type === "Broker Interest Received" || tx.type === "Bond Interest Received") {
+      }
+      else if (tx.type === "Broker Interest Received" || tx.type === "Bond Interest Received") {
         events.push({ date, currency: tx.currency, quantity: amount.abs(), ecbRate, trigger: "interest" });
-      } else if (tx.type === "Broker Interest Paid" || tx.type === "Bond Interest Paid") {
+      }
+      else if (tx.type === "Broker Interest Paid" || tx.type === "Bond Interest Paid") {
         events.push({ date, currency: tx.currency, quantity: amount.abs().negated(), ecbRate, trigger: "interest" });
-      } else if (tx.type === "Other Fees" || tx.type === "Commission Adjustments") {
+      }
+      else if (tx.type === "Other Fees" || tx.type === "Commission Adjustments") {
         if (amount.lessThan(0)) {
           events.push({ date, currency: tx.currency, quantity: amount.abs().negated(), ecbRate, trigger: "commission" });
         } else {
@@ -193,11 +224,13 @@ export class FxFifoEngine {
       }
     }
 
+
     return events;
   }
 
+
   //DESACTIVADO
-  // /** Detect FXCONV (automatic broker conversions for settlement) */
+  // /** Detecta FXCONV (conversiones automáticas del bróker para liquidación) */
   // private static isFxconv(trade: Trade): boolean {
   //   const desc = (trade.description || "").toUpperCase();
   //   const exch = (trade.exchange || "").toUpperCase();
@@ -206,12 +239,14 @@ export class FxFifoEngine {
   //     || exch === "FXCONV" || notes.includes("AFX");
   // }
 
+
   private addLot(event: FxEvent): void {
-    // // Commission increases the EUR cost of acquiring the lot
+    // // La comisión aumenta el coste en EUR de adquirir el lote
     // const baseCost = event.quantity.mul(event.ecbRate);
     // const totalCost = event.commissionEur ? baseCost.plus(event.commissionEur) : baseCost;
     const totalCost = event.realTotalPriceEUR ? event.realTotalPriceEUR : (event.quantity.mul(event.ecbRate).plus(event.commissionEur || 0));
     const costPerUnit = totalCost.div(event.quantity);
+
 
 
 
@@ -226,12 +261,14 @@ export class FxFifoEngine {
       realTotalPriceEUR: event.realTotalPriceEUR,
     };
 
+
     if (!this.lots.has(event.currency)) {
       this.lots.set(event.currency, []);
     }
     this.lots.get(event.currency)!.push(lot);
     console.log(`Add ${lot.id} ${lot.quantity.toFixed(3)} ${event.currency} ${lot.costPerUnit.toFixed(3)} ${totalCost.toFixed(3)} EUR N.lotes: ${this.lots.get(event.currency)!.length} total$ ${this.lots.get(event.currency)!.reduce((sum, l) => sum.plus(l.quantity), new Decimal(0)).toFixed(2)}, ${event.currency}, ${event.date}, ${event.brokerSource}`);
   }
+
 
   private consumeLots(event: FxEvent): void {
     let remaining = event.quantity.abs();
