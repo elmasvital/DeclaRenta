@@ -70,6 +70,7 @@ function dedupeCashTransactions(transactions: CashTransaction[]): CashTransactio
   for (const tx of transactions) {
     if (!isDividendCashTransaction(tx)) {
       result.push(tx);
+
       continue;
     }
 
@@ -80,11 +81,15 @@ function dedupeCashTransactions(transactions: CashTransaction[]): CashTransactio
     if (!normalizedDate || !normalizedIsin || !normalizedAmount) {
       result.push(tx);
       continue;
+
     }
 
     const key = `dividend|${normalizedDate}|${normalizedAmount}|${normalizedIsin}`;
 
-    if (seen.has(key)) continue;
+    if (seen.has(key)) {
+      console.log('Dividendo duplicado eliminado:', normalizedDate, normalizedAmount, tx.symbol);
+      continue;
+    }
 
     seen.set(key, tx);
     result.push(tx);
