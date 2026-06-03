@@ -54,6 +54,7 @@ function renderDisposalsDetail(disposals: FifoDisposal[], label: string): string
     </table>`;
 }
 
+//REPORTE DE DIVIDENDOS
 /** Render a detail table of dividend entries for a casilla drill-down. */
 function renderDividendsDetail(entries: DividendEntry[]): string {
   if (entries.length === 0) return `<p class="muted">${t("casilla.no_operations")}</p>`;
@@ -62,7 +63,7 @@ function renderDividendsDetail(entries: DividendEntry[]): string {
     <table class="detail-table">
       <thead><tr>
         <th>ISIN</th><th>${t("table.symbol")}</th><th>${t("table.date")}</th>
-        <th>${t("table.gross_eur")}</th><th>${t("table.country")}</th>
+        <th>${t("table.gross_eur")}</th><th>${t("table.withholding_eur")}</th><th>${t("table.country")}</th>
       </tr></thead>
       <tbody>${entries.map((d) => `
         <tr>
@@ -70,6 +71,7 @@ function renderDividendsDetail(entries: DividendEntry[]): string {
           <td>${esc(d.symbol)}</td>
           <td>${formatDate(d.payDate)}</td>
           <td>${d.grossAmountEur.toFixed(2)}</td>
+          <td>$${d.withholdingTaxEur.toFixed(2)}</td>
           <td>${esc(d.withholdingCountry)}</td>
         </tr>`).join("")}
       </tbody>
@@ -174,7 +176,7 @@ const CASILLAS: CasillaConfig[] = [
     getClass: (r) => r.capitalGains.netGainLoss.plus(r.fxGains.netGainLoss).greaterThanOrEqualTo(0) ? "gain" : "loss",
     getDetail: () => "",
   },
-  {
+  {//INFORME DIVIDENDOS
     code: "0029",
     i18nKey: "casilla.gross_dividends",
     getValue: (r) => r.dividends.grossIncome.toFixed(2),

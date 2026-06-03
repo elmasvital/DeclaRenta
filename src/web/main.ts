@@ -98,6 +98,7 @@ const splash = document.getElementById("splash");
 const splashCta = document.getElementById("splash-cta");
 
 function dismissSplash() {
+  
   if (!splash) return;
   splash.classList.add("splash-exit");
   splash.addEventListener("animationend", () => {
