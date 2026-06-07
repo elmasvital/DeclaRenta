@@ -199,7 +199,7 @@ function mapTrade(raw: Record<string, string>): Trade {
     proceeds: raw.proceeds ?? "0",
     cost: raw.cost ?? "0",
     fifoPnlRealized: raw.fifoPnlRealized ?? "0",
-    fxRateToBase: raw.fxRateToBase ?? "1",
+    fxRateToBase: raw.fxRateToBase ?? "",
     buySell: (raw.buySell ?? "BUY") as Trade["buySell"],
     openCloseIndicator: (raw.openCloseIndicator ?? "O") as Trade["openCloseIndicator"],
     exchange: raw.exchange ?? "",
@@ -417,7 +417,7 @@ function mapCashTransaction(raw: Record<string, string>): CashTransaction {
     dateTime: raw.dateTime ?? "",
     settleDate: raw.settleDate ?? "",
     amount: raw.amount ?? "0",
-    fxRateToBase: raw.fxRateToBase ?? "1",
+    fxRateToBase: raw.fxRateToBase ?? "",
     type: (raw.type ?? "") as CashTransaction["type"],
   };
 }
@@ -453,7 +453,7 @@ function mapOpenPosition(raw: Record<string, string>): OpenPosition {
     markPrice: raw.markPrice ?? "0",
     positionValue: raw.positionValue ?? "0",
     fifoPnlUnrealized: raw.fifoPnlUnrealized ?? "0",
-    fxRateToBase: raw.fxRateToBase ?? "1",
+    fxRateToBase: raw.fxRateToBase ?? "",
   };
 }
 

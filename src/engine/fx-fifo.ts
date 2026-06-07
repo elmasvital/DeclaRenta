@@ -99,8 +99,15 @@ export class FxFifoEngine {
       if (trade.assetCategory !== "CASH") continue;
       if (FxFifoEngine.isFxconv(trade)) continue;
 
+
+      let fxRate: Decimal;
       const date = normalizeDate(trade.settlementDate || trade.tradeDate);
-      const ecbRate = getEcbRate(rateMap, date, trade.currency);
+      if (trade.fxRateToBase) {
+        fxRate = new Decimal(trade.fxRateToBase);
+      } else {
+        fxRate = getEcbRate(rateMap, date, trade.currency);
+      }
+      // const ecbRate = getEcbRate(rateMap, date, trade.currency);
 
       const quoteIsTarget = FxFifoEngine.isCurrencyQuote(trade);
       let amount: Decimal;
@@ -122,15 +129,25 @@ export class FxFifoEngine {
         if (commCcy === "EUR") {
           commissionEur = commAbs;
         } else {
-          const commRate = getEcbRate(rateMap, date, commCcy);
+          const commRate = fxRate//getEcbRate(rateMap, date, commCcy);
           commissionEur = commAbs.mul(commRate);
         }
       }
 
+      if (trade.fxRateToBase) {
+        let costeRealEUR = amount.mul(fxRate).plus(commissionEur ?? new Decimal(0));
+        const ecbRate = costeRealEUR.div(amount);
+        let costeECBEUR = amount.plus(commissionEur ?? new Decimal(0)).mul(ecbRate);
+        console.log(`ConversionFX amount=${amount.toFixed(2)} ${trade.currency},commissionEur=${commissionEur?.toFixed(2) ?? "0"},
+        fxRateToBase=${fxRate.toFixed(4)}, costeRealEUR=${costeRealEUR.toFixed(2)},
+        ecbRate=${ecbRate.toFixed(4)}, costeECBEUR=${costeECBEUR.toFixed(2)},
+        diferencia=${costeRealEUR.minus(costeECBEUR).toFixed(4)}`);
+      }
+
       if (acquiring) {
-        events.push({ date, currency: trade.currency, quantity: amount, ecbRate, trigger: "conversion", commissionEur });
+        events.push({ date, currency: trade.currency, quantity: amount, ecbRate:fxRate, trigger: "conversion", commissionEur });
       } else {
-        events.push({ date, currency: trade.currency, quantity: amount.negated(), ecbRate, trigger: "conversion", commissionEur });
+        events.push({ date, currency: trade.currency, quantity: amount.negated(), ecbRate:fxRate, trigger: "conversion", commissionEur });
       }
     }
 

@@ -426,6 +426,7 @@ export class FifoEngine {
   }
 
   private consumeLots(trade: Trade, rateMap: EcbRateMap): void {
+
     const ecbRate = getEcbRate(rateMap, trade.tradeDate, trade.currency);
     let remaining = new Decimal(trade.quantity).abs();
     const commission = new Decimal(trade.commission).abs();
