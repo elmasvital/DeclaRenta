@@ -323,7 +323,7 @@ export class FxFifoEngine {
         // net it the same way — a withholding is a pago a cuenta whatever the income.
         const net = consumeWithholding(tx.currency, date, amount.abs());
         if (net.greaterThan(0)) {
-          events.push({ date, currency: tx.currency, quantity: amount.abs(), ecbRate, trigger: "interest" });
+          events.push({ date, currency: tx.currency, quantity: net, ecbRate, trigger: "interest" });
         }
       } else if (tx.type === "Broker Interest Paid" || tx.type === "Bond Interest Paid") {
         events.push({ date, currency: tx.currency, quantity: amount.abs().negated(), ecbRate, trigger: "interest" });
