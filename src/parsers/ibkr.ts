@@ -199,7 +199,8 @@ export function parseIbkrFlexXml(xml: string): FlexStatement {
 
 function mapTrade(raw: Record<string, string>): Trade {
 
-  //@elmasvital Se añade cost para costInEur a los trades de cash. En los trades de Cash cost está en blanco.
+  //@JMG Se añade cost para costInEur a los trades de cash. En los trades de Cash cost está en blanco.
+  //Y la idenfiticación del broker dentro del trade para poder loggear mejor las operaciones
   if (raw.assetCategory === "CASH") raw.cost = raw.quantity ? Math.abs(parseFloat(raw.quantity)).toString() : "0"; // Fix for cash trades missing cost,,,
   return {
     tradeID: raw.tradeID ?? "",
@@ -233,6 +234,7 @@ function mapTrade(raw: Record<string, string>): Trade {
     underlyingSymbol: raw.underlyingSymbol || undefined,
     underlyingIsin: raw.underlyingIsin || undefined,
     ibOrderID: raw.ibOrderID || undefined,
+    broker: "IBKR",
   };
 }
 
@@ -438,6 +440,7 @@ function mapCashTransaction(raw: Record<string, string>): CashTransaction {
     amount: raw.amount ?? "0",
     fxRateToBase: raw.fxRateToBase ?? "1",
     type: (raw.type ?? "") as CashTransaction["type"],
+    broker:"IBKR"
   };
 }
 
@@ -455,6 +458,7 @@ function mapCorporateAction(raw: Record<string, string>): CorporateAction {
     amount: raw.amount ?? "0",
     type: raw.type ?? "",
     actionDescription: raw.actionDescription ?? "",
+    broker: "IBKR",
   };
 }
 
@@ -473,6 +477,7 @@ function mapOpenPosition(raw: Record<string, string>): OpenPosition {
     positionValue: raw.positionValue ?? "0",
     fifoPnlUnrealized: raw.fifoPnlUnrealized ?? "0",
     fxRateToBase: raw.fxRateToBase ?? "1",
+    broker: "IBKR",
   };
 }
 
@@ -486,6 +491,7 @@ function mapSecurityInfo(raw: Record<string, string>): SecurityInfo {
     assetCategory: (raw.assetCategory ?? "STK") as SecurityInfo["assetCategory"],
     multiplier: raw.multiplier ?? "1",
     subCategory: raw.subCategory ?? "",
+    broker: "IBKR",
   };
 }
 
@@ -499,6 +505,7 @@ function mapCashBalance(raw: Record<string, string>): CashBalance {
     openedDate: raw.openedDate ?? raw.openDate,
     institutionName: raw.institutionName ?? raw.brokerName,
     countryCode: raw.countryCode ?? raw.country,
+    broker: "IBKR",
   };
 }
 
@@ -508,6 +515,7 @@ interface OptionEaeDelivery {
   underlyingSymbol: string;
   tradePrice: string;
   action: string;
+
 }
 
 function parseOptionEaeRows(rawRows: Record<string, string>[]): OptionExercise[] {
