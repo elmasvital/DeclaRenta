@@ -70,7 +70,7 @@ export class FxFifoEngine {
         // imprimimos evento y lote
         console.log(`Con ${new Date(event.date).toLocaleDateString("es-ES")} ${event.quantity}usd  costInEur ${event.costInEur}eur ratio ${event.quantity.div(event.costInEur ? event.costInEur : new Decimal(1)).toFixed(5)}`)
       }
-    } 
+    }
 
     for (const [currency, { count, totalQty }] of this.fxMissing) {
       this.emit({ id: "fx.missing_prior_lots", severity: "info", message: `⚠ ${count} disposiciones de ${currency} sin lotes previos suficientes (total: ${totalQty.toFixed(2)} ${currency}). Posible adquisición anterior al período declarado — ganancia FX asumida = 0.`, hint: "La adquisición de esta divisa fue anterior al periodo del Flex Query. Se asume ganancia FX = 0 (tratamiento conservador).", context: { currency, count: count.toString(), totalQuantity: totalQty.toFixed(2) } });
@@ -199,13 +199,13 @@ export class FxFifoEngine {
 
       if (tx.type === "Dividends" || tx.type === "Payment In Lieu Of Dividends") {
         events.push({ date, currency: tx.currency, quantity: amount.abs(), ecbRate, trigger: "dividend" });
-      } else if (tx.type === "Withholding Tax") {
+      } else if (tx.type === "Withholding Tax"|| (tx.type === "Other Fees" && (tx.description.includes("CASH DIVIDEND")) && (tx.description.includes("FEE"))) ) {
         events.push({ date, currency: tx.currency, quantity: amount.abs().negated(), ecbRate, trigger: "dividend" });
       } else if (tx.type === "Broker Interest Received" || tx.type === "Bond Interest Received") {
         events.push({ date, currency: tx.currency, quantity: amount.abs(), ecbRate, trigger: "interest" });
       } else if (tx.type === "Broker Interest Paid" || tx.type === "Bond Interest Paid") {
         events.push({ date, currency: tx.currency, quantity: amount.abs().negated(), ecbRate, trigger: "interest" });
-      } else if (tx.type === "Other Fees" || tx.type === "Commission Adjustments") {
+      } else if (tx.type === "Commission Adjustments" || (tx.type === "Other Fees")) {
         if (amount.lessThan(0)) {
           events.push({ date, currency: tx.currency, quantity: amount.abs().negated(), ecbRate, trigger: "commission" });
         } else {
