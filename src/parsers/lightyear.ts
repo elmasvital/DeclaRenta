@@ -145,7 +145,11 @@ function parseLightyearCsv(lines: string[]): Statement {
     const ccy = (fields[cols.ccy] ?? "EUR").trim();
     const existing = conversionFees.get(dateRaw);
     if (!existing || feeDec.abs().greaterThan(new Decimal(existing.fee).abs())) {
-      conversionFees.set(dateRaw, { fee: feeDec.abs().toString(), currency: ccy });
+      conversionFees.set(dateRaw, {
+        fee: feeDec.abs().toString(), currency: ccy,
+        grossDec: new Decimal(grossVal || 0),
+        netDec: new Decimal(netVal || 0)
+      });
     }
   }
 
