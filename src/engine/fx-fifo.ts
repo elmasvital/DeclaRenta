@@ -29,6 +29,7 @@ export interface FxEvent {
   trigger: FxTrigger;
   /** Commission in EUR (positive = cost paid). Increases cost basis on BUY, reduces proceeds on SELL. */
   commissionEur?: Decimal;
+  costInEur?: Decimal;
 }
 
 export class FxFifoEngine {
@@ -64,17 +65,23 @@ export class FxFifoEngine {
 
     for (const event of sorted) {
       if (event.currency === "EUR") continue;
-
       if (event.quantity.greaterThan(0)) {
         this.addLot(event);
+        console.log(`Add   ${new Date(event.date).toLocaleDateString("es-ES")} ${event.quantity}usd costInEur ${event.costInEur} eur ratio ${event.quantity.div(event.costInEur ? event.costInEur : new Decimal(1)).toFixed(5)}`
+        );
       } else if (event.quantity.lessThan(0)) {
         this.consumeLots(event);
+        // imprimimos evento y lote
+        console.log(`Con ${new Date(event.date).toLocaleDateString("es-ES")} ${event.quantity}usd  costInEur ${event.costInEur}eur ratio ${event.quantity.div(event.costInEur ? event.costInEur : new Decimal(1)).toFixed(5)}`)
+
       }
     }
 
     for (const [currency, { count, totalQty }] of this.fxMissing) {
       this.emit({ id: "fx.missing_prior_lots", severity: "info", message: `⚠ ${count} disposiciones de ${currency} sin lotes previos suficientes (total: ${totalQty.toFixed(2)} ${currency}). Posible adquisición anterior al período declarado — ganancia FX asumida = 0.`, hint: "La adquisición de esta divisa fue anterior al periodo del Flex Query. Se asume ganancia FX = 0 (tratamiento conservador).", context: { currency, count: count.toString(), totalQuantity: totalQty.toFixed(2) } });
     }
+    //TEST IMPRIMIMOS LOS LOTES QUE QUEDAN AL FINAL DEL PROCESO PARA VER SI HAY ALGUNO QUE NO SE HAYA CONSUMIDO Y PODAMOS INVESTIGAR PORQUE NO SE HA CONSUMIDO
+    this.printRemainingLots();
 
     return this.disposals;
   }
@@ -367,7 +374,7 @@ export class FxFifoEngine {
         holdingPeriodDays: holdingDays,
         lotId: lot.id,
       });
-
+      console.log(`  Consumo lot ${lot.id} f.Crea ${lot.acquireDate}: ${consumed.toFixed(2)} ${event.currency} costInEur ${costBasisEur.toFixed(2)} EUR and proceeds ${proceedsEur.toFixed(2)} EUR (gain/loss: ${proceedsEur.minus(costBasisEur).toFixed(2)} EUR), quedan en el lote ${lot.quantity.minus(consumed).toFixed(2)} ${event.currency} con costInEur ${lot.costInEur.minus(costBasisEur).toFixed(2)} EUR`);
       lot.quantity = lot.quantity.minus(consumed);
       lot.costInEur = lot.costInEur.minus(costBasisEur);
 
@@ -409,5 +416,19 @@ export class FxFifoEngine {
 
   getRemainingLots(): Map<string, FxLot[]> {
     return this.lots;
+  }
+  // Solo para testing, imprime los lotes que quedan al final del proceso para verificar si hay alguno que no se haya consumido y podamos investigar por qué no se ha consumido.
+  private printRemainingLots(): void {
+    console.log("=== FX FIFO remaining lots ===");
+    for (const [currency, lots] of this.lots) {
+      const totalQty = lots.reduce((acc, lot) => acc.plus(lot.quantity), new Decimal(0));
+      const totalCost = lots.reduce((acc, lot) => acc.plus(lot.costInEur), new Decimal(0));
+      console.log(`${currency}: ${totalQty.toFixed(2)} units, cost=${totalCost.toFixed(2)} EUR`);
+      for (const lot of lots) {
+        console.log(
+          `  ${lot.id} | ${lot.acquireDate} | qty=${lot.quantity.toFixed(2)} | costPerUnit=${lot.costPerUnit.toFixed(6)} | cost=${lot.costInEur.toFixed(2)} EUR`,
+        );
+      }
+    }
   }
 }
