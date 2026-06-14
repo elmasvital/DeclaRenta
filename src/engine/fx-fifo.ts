@@ -88,7 +88,7 @@ export class FxFifoEngine {
         console.log(
           `[${g}FXAdd${z}] ` +
           `${m}${triggerTXT.padEnd(5)}${z} | ` +
-          `Fecha: ${g}${dateTXT}${z} | ` +
+          `${g}${dateTXT}${z} | ` +
           `Cant: ${g}${event.quantity} USD${z} | ` +
           `${costInEurTXT ? `${g}${costInEurTXT}${z} | ` : ''}` +
           `Ratio: ${g}${ratio}${z}`
@@ -111,7 +111,7 @@ export class FxFifoEngine {
         console.log(
           `[${r}FXCons${z}] ` +
           `${m}${event.trigger.toUpperCase().padEnd(5)}${z} | ` +
-          `Fecha: ${g}${dateTXT}${z} | ` +
+          `${g}${dateTXT}${z} | ` +
           `Cant: ${g}${event.quantity} USD${z} | ` +
           `${costInEurTXT ? `${g}${costInEurTXT}${z} | ` : ''}` +
           `Ratio: ${g}${ratio}${z}`
