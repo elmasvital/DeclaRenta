@@ -253,7 +253,8 @@ export class FxFifoEngine {
         if (net.greaterThan(0)) {
           events.push({ date, currency: tx.currency, quantity: net, ecbRate, trigger: "dividend" });
         }
-      } else if (tx.type === "Withholding Tax") {
+      } else if (tx.type === "Withholding Tax" || (tx.type === "Other Fees" && (tx.description.includes("CASH DIVIDEND")) && (tx.description.includes("FEE")))) {
+      //} else if (tx.type === "Withholding Tax") {
         // Netted into its income inflow above (or dropped if orphan). Never a
         // disposal. A positive-amount WHT (a refund) IS currency received → acquire.
         // Defensive: not observed in current broker exports, but symmetric and cheap.

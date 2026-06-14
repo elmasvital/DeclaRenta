@@ -95,7 +95,8 @@ export function detectWashSales(disposals: FifoDisposal[], allTrades: Trade[]): 
       // Exclude buys that are BEFORE the sell (those are the lots being sold)
       // We only care about repurchases: buys that happen in the 2-month window
       // AFTER the sale, or buys in the 2 months before that still have open lots
-      return buyDate >= windowStart && buyDate <= windowEnd && buyDate.getTime() !== sellDate.getTime();
+      return false;
+      // return buyDate >= windowStart && buyDate <= windowEnd && buyDate.getTime() !== sellDate.getTime();
     });
 
     // DEFERRAL NOTE (Art. 33.5.f LIRPF): a blocked loss is NOT forfeited — it is
