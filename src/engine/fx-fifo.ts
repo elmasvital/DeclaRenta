@@ -75,7 +75,7 @@ export class FxFifoEngine {
     for (const event of sorted) {
       if (event.currency === "EUR") continue;
 
-      const costInEurTXT = event.costInEur ? `CostEurBroker: ${event.costInEur} EUR` : "";
+      const costInEurTXT = event.costInEur ? `CostEurBroker: ${g}${event.costInEur} EUR` : "";
       const triggerTXT = event.trigger.toUpperCase();
       const dateTXT = new Date(event.date).toLocaleDateString("es-ES");
       const ratio = event.quantity.div(event.costInEur ? event.costInEur : new Decimal(1)).toFixed(5);
@@ -90,7 +90,7 @@ export class FxFifoEngine {
           `${m}${triggerTXT.padEnd(5)}${z} | ` +
           `${g}${dateTXT}${z} | ` +
           `Cant: ${g}${event.quantity} USD${z} | ` +
-          `${costInEurTXT ? `${g}${costInEurTXT}${z} | ` : ''}` +
+          `${costInEurTXT ? `${costInEurTXT}${z} | ` : ''}` +
           `Ratio: ${g}${ratio}${z}`
         );
       // }
@@ -113,7 +113,7 @@ export class FxFifoEngine {
           `${m}${event.trigger.toUpperCase().padEnd(5)}${z} | ` +
           `${g}${dateTXT}${z} | ` +
           `Cant: ${g}${event.quantity} USD${z} | ` +
-          `${costInEurTXT ? `${g}${costInEurTXT}${z} | ` : ''}` +
+          `${costInEurTXT ? `${costInEurTXT}${z} | ` : ''}` +
           `Ratio: ${g}${ratio}${z}`
         );
       }
@@ -186,9 +186,9 @@ export class FxFifoEngine {
       }
 
       if (acquiring) {
-        events.push({ date, currency: trade.currency, quantity: amount, ecbRate, trigger: "conversion", commissionEur });
+        events.push({ date, currency: trade.currency, quantity: amount, ecbRate, trigger: "conversion", commissionEur, costInEur: new Decimal(trade.cost) });
       } else {
-        events.push({ date, currency: trade.currency, quantity: amount.negated(), ecbRate, trigger: "conversion", commissionEur });
+        events.push({ date, currency: trade.currency, quantity: amount.negated(), ecbRate, trigger: "conversion", commissionEur,  costInEur: new Decimal(trade.cost) });
       }
     }
 
@@ -303,7 +303,7 @@ export class FxFifoEngine {
         // `greaterThan(0)`, not `isPositive()` — decimal.js treats +0 as positive,
         // and a zero-quantity event would make addLot compute 0/0 = NaN.
         if (net.greaterThan(0)) {
-          events.push({ date, currency: tx.currency, quantity: net, ecbRate, trigger: "dividend" });
+          events.push({ date, currency: tx.currency, quantity: amount.abs(), ecbRate, trigger: "dividend" });
         }
       } else if (tx.type === "Withholding Tax" || (tx.type === "Other Fees" && (tx.description.includes("CASH DIVIDEND")) && (tx.description.includes("FEE")))) {
       //} else if (tx.type === "Withholding Tax") {
@@ -318,7 +318,7 @@ export class FxFifoEngine {
         // net it the same way — a withholding is a pago a cuenta whatever the income.
         const net = consumeWithholding(tx.currency, date, amount.abs());
         if (net.greaterThan(0)) {
-          events.push({ date, currency: tx.currency, quantity: net, ecbRate, trigger: "interest" });
+          events.push({ date, currency: tx.currency, quantity: amount.abs(), ecbRate, trigger: "interest" });
         }
       } else if (tx.type === "Broker Interest Paid" || tx.type === "Bond Interest Paid") {
         events.push({ date, currency: tx.currency, quantity: amount.abs().negated(), ecbRate, trigger: "interest" });
