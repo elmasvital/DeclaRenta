@@ -265,6 +265,12 @@ export class FifoEngine {
       optionIdx++;
     }
 
+    for (const [key, lots] of this.lots.entries()) {
+      // const lotSymbol = lots[0]?.symbol || "";
+      console.log(`FIFO final lots for ${key}: ${lots[0]?.symbol || "Lote consumido.Acciones vendidas"}`,
+        lots.map((l) => ({ id: l.id, isin: l.isin, symbol: l.symbol, quantity: l.quantity.toString(), costInFcy: l.costInFcy.toString() })));
+    }
+
     return this.disposals;
   }
 

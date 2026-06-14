@@ -129,20 +129,29 @@ function parseLightyearCsv(lines: string[]): Statement {
   // Lightyear emits conversion pairs (one leg per currency). The fee can appear
   // on either leg (often on the EUR leg, which we skip). Group by timestamp
   // and extract the fee so it can be applied to the non-EUR trade.
-  const conversionFees = new Map<string, { fee: string; currency: string }>();
+  const conversionFees = new Map<string, { fee: string; currency: string; grossDec: Decimal; netDec: Decimal }>();
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i]!.trim();
     if (!line) continue;
     const fields = parseCsvLine(line, ",");
     const txType = (fields[cols.type] ?? "").trim().toLowerCase();
     if (txType !== "conversion") continue;
-    const feeDec = toFiniteDecimal(fields[cols.fee] ?? "0");
+    const feeVal = parseNumber(fields[cols.fee] ?? "0");
+    const feeDec = new Decimal(feeVal);
+    const netVal = parseNumber(fields[cols.netAmount] ?? "0");
+    //const netDec = new Decimal(netVal);
+    const grossVal = parseNumber(fields[cols.grossAmount] ?? "0");
+    //const grossDec = new Decimal(grossVal);
     if (feeDec.isZero()) continue;
     const dateRaw = (fields[cols.date] ?? "").trim();
     const ccy = (fields[cols.ccy] ?? "EUR").trim();
     const existing = conversionFees.get(dateRaw);
     if (!existing || feeDec.abs().greaterThan(new Decimal(existing.fee).abs())) {
-      conversionFees.set(dateRaw, { fee: feeDec.abs().toString(), currency: ccy });
+      conversionFees.set(dateRaw, {
+        fee: feeDec.abs().toString(), currency: ccy,
+        grossDec: new Decimal(grossVal || 0),
+        netDec: new Decimal(netVal || 0)
+      });
     }
   }
 
@@ -169,6 +178,8 @@ function parseLightyearCsv(lines: string[]): Statement {
     const netAmount = toFiniteDecimalString(fields[cols.netAmount] ?? "0");
     const taxAmount = toFiniteDecimalString(fields[cols.taxAmount] ?? "0");
 
+    const fxRate = parseNumber(fields[cols.fxRate] ?? "1");
+
     if (!dateRaw) continue;
     const tradeDate = convertLightyearDate(dateRaw);
 
@@ -191,7 +202,7 @@ function parseLightyearCsv(lines: string[]): Statement {
         dateTime: tradeDate,
         settleDate: tradeDate,
         amount: grossDec.toString(),
-        fxRateToBase: "1",
+        fxRateToBase: fxRate.toString(),
         type: "Dividends",
       });
 
@@ -208,7 +219,7 @@ function parseLightyearCsv(lines: string[]): Statement {
           dateTime: tradeDate,
           settleDate: tradeDate,
           amount: taxDec.neg().abs().neg().toString(),
-          fxRateToBase: "1",
+          fxRateToBase: fxRate.toString(),
           type: "Withholding Tax",
         });
       }
@@ -233,7 +244,7 @@ function parseLightyearCsv(lines: string[]): Statement {
         dateTime: tradeDate,
         settleDate: tradeDate,
         amount: amountDec.toString(),
-        fxRateToBase: "1",
+        fxRateToBase: fxRate.toString(),
         type: "Broker Interest Received",
       });
       continue;
@@ -270,9 +281,9 @@ function parseLightyearCsv(lines: string[]): Statement {
         tradePrice: "1",
         tradeMoney: isFxBuy ? absDec.neg().toString() : absDec.toString(),
         proceeds: isFxBuy ? "0" : absDec.toString(),
-        cost: isFxBuy ? absDec.neg().toString() : "0",
+        cost: pairedFee ? pairedFee.grossDec.abs().toString() : "0",
         fifoPnlRealized: "0",
-        fxRateToBase: "1",
+        fxRateToBase: fxRate.toString(),
         buySell: isFxBuy ? "BUY" : "SELL",
         openCloseIndicator: isFxBuy ? "O" : "C",
         exchange: "LIGHTYEAR",
@@ -314,7 +325,7 @@ function parseLightyearCsv(lines: string[]): Statement {
       proceeds: isSell ? netDec.toString() : "0",
       cost: isSell ? "0" : netDec.neg().toString(),
       fifoPnlRealized: "0",
-      fxRateToBase: "1",
+      fxRateToBase: fxRate.toString(),
       buySell: isSell ? "SELL" : "BUY",
       openCloseIndicator: isSell ? "C" : "O",
       exchange: "LIGHTYEAR",
