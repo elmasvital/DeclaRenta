@@ -139,9 +139,9 @@ function parseLightyearCsv(lines: string[]): Statement {
     const feeVal = parseNumber(fields[cols.fee] ?? "0");
     const feeDec = new Decimal(feeVal);
     const netVal = parseNumber(fields[cols.netAmount] ?? "0");
-    const netDec = new Decimal(netVal);
+    //const netDec = new Decimal(netVal);
     const grossVal = parseNumber(fields[cols.grossAmount] ?? "0");
-    const grossDec = new Decimal(grossVal);
+    //const grossDec = new Decimal(grossVal);
     if (feeDec.isZero()) continue;
     const dateRaw = (fields[cols.date] ?? "").trim();
     const ccy = (fields[cols.ccy] ?? "EUR").trim();
@@ -177,10 +177,7 @@ function parseLightyearCsv(lines: string[]): Statement {
     const fee = toFiniteDecimalString(fields[cols.fee] ?? "0");
     const netAmount = toFiniteDecimalString(fields[cols.netAmount] ?? "0");
     const taxAmount = toFiniteDecimalString(fields[cols.taxAmount] ?? "0");
-    const grossAmount = parseNumber(fields[cols.grossAmount] ?? "0");
-    const fee = parseNumber(fields[cols.fee] ?? "0");
-    const netAmount = parseNumber(fields[cols.netAmount] ?? "0");
-    const taxAmount = parseNumber(fields[cols.taxAmount] ?? "0");
+
     const fxRate = parseNumber(fields[cols.fxRate] ?? "1");
 
     if (!dateRaw) continue;
