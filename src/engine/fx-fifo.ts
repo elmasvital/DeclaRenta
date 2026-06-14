@@ -19,6 +19,15 @@ import type { EcbRateMap } from "../types/ecb.js";
 import { getEcbRate, isEcbResolvable, lookupRateInMap } from "./ecb.js";
 import { daysBetween, normalizeDate } from "./dates.js";
 
+// Colores ANSI para la terminal
+const z = "\x1b[0m"; //reset
+const r = "\x1b[31m"; //red
+const c = "\x1b[36m"; //cyan
+const g = "\x1b[32m"; //green
+const y = "\x1b[33m"; //yellow
+const m = "\x1b[35m"; //magenta
+const b = "\x1b[1m"; //bold
+
 export interface FxEvent {
   date: string;
   currency: string;
@@ -65,15 +74,48 @@ export class FxFifoEngine {
 
     for (const event of sorted) {
       if (event.currency === "EUR") continue;
+
+      const costInEurTXT = event.costInEur ? `CostEurBroker: ${event.costInEur} EUR` : "";
+      const triggerTXT = event.trigger.toUpperCase();
+      const dateTXT = new Date(event.date).toLocaleDateString("es-ES");
+      const ratio = event.quantity.div(event.costInEur ? event.costInEur : new Decimal(1)).toFixed(5);
+
       if (event.quantity.greaterThan(0)) {
         this.addLot(event);
-        console.log(`Add   ${new Date(event.date).toLocaleDateString("es-ES")} ${event.quantity}usd costInEur ${event.costInEur} eur ratio ${event.quantity.div(event.costInEur ? event.costInEur : new Decimal(1)).toFixed(5)}`
+
+
+        // Formato ordenado y con espaciado fijo (padding) para que si imprimes varios logs, queden alineados
+        console.log(
+          `[${g}FXAdd${z}] ` +
+          `${m}${triggerTXT.padEnd(5)}${z} | ` +
+          `Fecha: ${g}${dateTXT}${z} | ` +
+          `Cant: ${g}${event.quantity} USD${z} | ` +
+          `${costInEurTXT ? `${g}${costInEurTXT}${z} | ` : ''}` +
+          `Ratio: ${g}${ratio}${z}`
         );
+      // }
+
+
+      // const costInEurTXT = event.costInEur ? `CostEurBroker: ${event.costInEur} EUR` : "";
+      // const triggerTXT = event.trigger.toUpperCase();
+      // const dateTXT = new Date(event.date).toLocaleDateString("es-ES");
+      // const ratio = event.quantity.div(event.costInEur ? event.costInEur : new Decimal(1)).toFixed(5);
+      // //const costInEur = event.quantity.mul(event.ecbRate).plus(event.commissionEur || new Decimal(0));
+      // if (event.quantity.greaterThan(0)) {
+      //   this.addLot(event);
+      //   console.log(`FXAdd ${triggerTXT} ${dateTXT} ${event.quantity}usd ${costInEurTXT} ratio ${ratio}`
+      //   );
       } else if (event.quantity.lessThan(0)) {
         this.consumeLots(event);
         // imprimimos evento y lote
-        console.log(`Con ${new Date(event.date).toLocaleDateString("es-ES")} ${event.quantity}usd  costInEur ${event.costInEur}eur ratio ${event.quantity.div(event.costInEur ? event.costInEur : new Decimal(1)).toFixed(5)}`)
-
+        console.log(
+          `[${r}FXCons${z}] ` +
+          `${m}${event.trigger.toUpperCase().padEnd(5)}${z} | ` +
+          `Fecha: ${g}${dateTXT}${z} | ` +
+          `Cant: ${g}${event.quantity} USD${z} | ` +
+          `${costInEurTXT ? `${g}${costInEurTXT}${z} | ` : ''}` +
+          `Ratio: ${g}${ratio}${z}`
+        );
       }
     }
 
@@ -113,7 +155,10 @@ export class FxFifoEngine {
       if (FxFifoEngine.isFxconv(trade)) continue;
 
       const date = normalizeDate(trade.settlementDate || trade.tradeDate);
-      const ecbRate = getEcbRate(rateMap, date, trade.currency);
+      // const ecbRate = getEcbRate(rateMap, date, trade.currency);
+      // Usaremos el ecbRate para poner el cambio real aplicado por el broker.
+      const ecbRate = new Decimal(trade.fxRateToBase || "");
+
 
       const quoteIsTarget = FxFifoEngine.isCurrencyQuote(trade);
       let amount: Decimal;
@@ -291,11 +336,12 @@ export class FxFifoEngine {
 
   /** Detect FXCONV (automatic broker conversions for settlement) */
   private static isFxconv(trade: Trade): boolean {
-    const desc = (trade.description || "").toUpperCase();
-    const exch = (trade.exchange || "").toUpperCase();
-    const notes = (trade.notes || "").toUpperCase().split(";");
-    return desc.includes("FXCONV") || desc.includes("CASH RECEIPTS") || desc.includes("CASH DISBURSEMENTS")
-      || exch === "FXCONV" || notes.includes("AFX");
+    // const desc = (trade.description || "").toUpperCase();
+    // const exch = (trade.exchange || "").toUpperCase();
+    // const notes = (trade.notes || "").toUpperCase().split(";");
+    // return desc.includes("FXCONV") || desc.includes("CASH RECEIPTS") || desc.includes("CASH DISBURSEMENTS")
+    //   || exch === "FXCONV" || notes.includes("AFX");
+    return false;
   }
 
   private addLot(event: FxEvent): void {
@@ -374,7 +420,9 @@ export class FxFifoEngine {
         holdingPeriodDays: holdingDays,
         lotId: lot.id,
       });
-      console.log(`  Consumo lot ${lot.id} f.Crea ${lot.acquireDate}: ${consumed.toFixed(2)} ${event.currency} costInEur ${costBasisEur.toFixed(2)} EUR and proceeds ${proceedsEur.toFixed(2)} EUR (gain/loss: ${proceedsEur.minus(costBasisEur).toFixed(2)} EUR), quedan en el lote ${lot.quantity.minus(consumed).toFixed(2)} ${event.currency} con costInEur ${lot.costInEur.minus(costBasisEur).toFixed(2)} EUR`);
+
+      console.log(
+        `[${y}STKCons${z}] ${lot.id} f.Crea ${lot.acquireDate}: ${consumed.toFixed(2)} ${event.currency} costInEur ${costBasisEur.toFixed(2)} EUR and proceeds ${proceedsEur.toFixed(2)} EUR (gain/loss: ${proceedsEur.minus(costBasisEur).toFixed(2)} EUR), quedan en el lote ${lot.quantity.minus(consumed).toFixed(2)} ${event.currency} con costInEur ${lot.costInEur.minus(costBasisEur).toFixed(2)} EUR`);
       lot.quantity = lot.quantity.minus(consumed);
       lot.costInEur = lot.costInEur.minus(costBasisEur);
 
