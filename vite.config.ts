@@ -35,11 +35,23 @@ export default defineConfig({
   build: {
     outDir: resolve(__dirname, "dist/web"),
     emptyOutDir: true,
+    // Explicit target (matches tsconfig ES2022). Pins the browser baseline so it
+    // doesn't drift with Vite's default, and stops the bundler trying to down-level
+    // modern destructuring (from jspdf/jspdf-autotable) to an old target — the
+    // failure mode that bit the earlier standalone esbuild bump under Vite 6.
+    target: "es2022",
     rollupOptions: {
       input: {
         main: resolve(__dirname, "src/web/index.html"),
         docs: resolve(__dirname, "src/web/docs.html"),
       },
+      // jspdf lists html2canvas as an OPTIONAL dependency and only `import()`s it
+      // lazily on its `.html()` DOM-to-PDF path — which DeclaRenta never uses (we
+      // build PDFs programmatically via jspdf + jspdf-autotable). Marking it
+      // external drops the ~195KB html2canvas chunk from the web output. The
+      // bare dynamic import left behind is never executed, so the non-.html PDF
+      // generation is unaffected.
+      external: ["html2canvas"],
     },
   },
   server: {
