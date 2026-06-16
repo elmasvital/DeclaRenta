@@ -79,6 +79,8 @@ export class FxFifoEngine {
       const triggerTXT = event.trigger.toUpperCase();
       const dateTXT = new Date(event.date).toLocaleDateString("es-ES");
       const ratio = event.quantity.div(event.costInEur ? event.costInEur : new Decimal(1)).toFixed(5);
+      const eventORratio = `${event.costInEur ? event.costInEur : ratio}`;
+      const copyTXT = `COPY: ${dateTXT}\t\t\t\t${event.quantity}\t${eventORratio}`
 
       if (event.quantity.greaterThan(0)) {
         this.addLot(event);
@@ -91,7 +93,8 @@ export class FxFifoEngine {
           `${g}${dateTXT}${z} | ` +
           `Cant: ${g}${event.quantity} USD${z} | ` +
           `${costInEurTXT ? `${costInEurTXT}${z} | ` : ''}` +
-          `Ratio: ${g}${ratio}${z}`
+          `Ratio: ${g}${ratio}${z}` +
+          ` | ${copyTXT}`
         );
       // }
 
@@ -114,7 +117,9 @@ export class FxFifoEngine {
           `${g}${dateTXT}${z} | ` +
           `Cant: ${g}${event.quantity} USD${z} | ` +
           `${costInEurTXT ? `${costInEurTXT}${z} | ` : ''}` +
-          `Ratio: ${g}${ratio}${z}`
+          `Ratio: ${g}${ratio}${z}` +
+          ` | ${copyTXT}`
+
         );
       }
     }
@@ -341,6 +346,7 @@ export class FxFifoEngine {
     // const notes = (trade.notes || "").toUpperCase().split(";");
     // return desc.includes("FXCONV") || desc.includes("CASH RECEIPTS") || desc.includes("CASH DISBURSEMENTS")
     //   || exch === "FXCONV" || notes.includes("AFX");
+    console.log('INFO: detección de conversiones AutoFx DESACTIVADA');
     return false;
   }
 
@@ -422,7 +428,7 @@ export class FxFifoEngine {
       });
 
       console.log(
-        `[${y}STKCons${z}] ${lot.id} f.Crea ${lot.acquireDate}: ${consumed.toFixed(2)} ${event.currency} costInEur ${costBasisEur.toFixed(2)} EUR and proceeds ${proceedsEur.toFixed(2)} EUR (gain/loss: ${proceedsEur.minus(costBasisEur).toFixed(2)} EUR), quedan en el lote ${lot.quantity.minus(consumed).toFixed(2)} ${event.currency} con costInEur ${lot.costInEur.minus(costBasisEur).toFixed(2)} EUR`);
+        `[${y}STKCons${z}] ${lot.id} |${event.date} | f.Crea ${lot.acquireDate}: ${consumed.toFixed(2)} ${event.currency} costInEur ${costBasisEur.toFixed(2)} EUR and proceeds ${proceedsEur.toFixed(2)} EUR (gain/loss: ${proceedsEur.minus(costBasisEur).toFixed(2)} EUR), quedan en el lote ${lot.quantity.minus(consumed).toFixed(2)} ${event.currency} con costInEur ${lot.costInEur.minus(costBasisEur).toFixed(2)} EUR`);
       lot.quantity = lot.quantity.minus(consumed);
       lot.costInEur = lot.costInEur.minus(costBasisEur);
 

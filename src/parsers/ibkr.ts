@@ -198,6 +198,9 @@ export function parseIbkrFlexXml(xml: string): FlexStatement {
 }
 
 function mapTrade(raw: Record<string, string>): Trade {
+
+  //@elmasvital Se añade cost para costInEur a los trades de cash. En los trades de Cash cost está en blanco.
+  if (raw.assetCategory === "CASH") raw.cost = raw.quantity ? Math.abs(parseFloat(raw.quantity)).toString() : "0"; // Fix for cash trades missing cost,,,
   return {
     tradeID: raw.tradeID ?? "",
     accountId: raw.accountId ?? "",
