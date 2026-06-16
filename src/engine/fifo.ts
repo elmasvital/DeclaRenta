@@ -502,6 +502,7 @@ export class FifoEngine {
     // call sites below (no lots, FIFO-consumed lot, remaining shortfall) only
     // vary in the per-lot numeric fields and the optional option metadata, so the
     // ~20 constant fields are filled once here to avoid 3 near-duplicate literals.
+
     const buildDisposal = (parts: {
       acquireDate: string;
       quantity: Decimal;
@@ -535,7 +536,7 @@ export class FifoEngine {
       washSaleBlocked: false, // Set later by wash sale detection
       ...(parts.optionFields ?? {}),
     });
-
+    // console.log('comsuleLots resultado '+ buildDisposal.trade());
     const key = lotKey(trade);
     const lots = this.lots.get(key);
     if (!lots || lots.length === 0) {
@@ -591,6 +592,7 @@ export class FifoEngine {
       const acquireDate = lot.acquireDate;
       const holdingDays = daysBetween(acquireDate, sellDate);
 
+      console.log('[CONSLOT] Resultado de la venta: | ' + trade.tradeDate + ' | ' + gainLossFcy.toString());
       this.disposals.push(buildDisposal({
         acquireDate,
         quantity: consumed,

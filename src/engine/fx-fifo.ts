@@ -78,9 +78,9 @@ export class FxFifoEngine {
       const costInEurTXT = event.costInEur ? `CostEurBroker: ${g}${event.costInEur} EUR` : "";
       const triggerTXT = event.trigger.toUpperCase();
       const dateTXT = new Date(event.date).toLocaleDateString("es-ES");
-      const ratio = event.quantity.div(event.costInEur ? event.costInEur : new Decimal(1)).toFixed(5);
-      const eventORratio = `${event.costInEur ? event.costInEur : ratio}`;
-      const copyTXT = `COPY: ${dateTXT}\t\t\t\t${event.quantity}\t${eventORratio}`
+      let ratio = event.trigger === "conversion" ? event.quantity.div(event.costInEur ? event.costInEur : new Decimal(1)).toFixed(5) : `\t${(1/event.ecbRate).toFixed(5)}`;
+//      const eventORratio = `${event.costInEur ? event.costInEur : ratio}`;
+      const copyTXT = `COPY: ${dateTXT}\t\t\t\t${event.quantity}\t${ratio}`
 
       if (event.quantity.greaterThan(0)) {
         this.addLot(event);
