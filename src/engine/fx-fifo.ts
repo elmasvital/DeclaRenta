@@ -101,8 +101,7 @@ export class FxFifoEngine {
 
       } else if (event.quantity.lessThan(0)) {
         this.consumeLots(event);
-        // imprimimos evento y lote
-        console.log(
+          console.log(
           `[${r}FXCons${z}] ` +
           `${event.broker ? `${event.broker} | ` : ''}` +
           `${m}${event.trigger.toUpperCase().padEnd(5)}${z} | ` +
