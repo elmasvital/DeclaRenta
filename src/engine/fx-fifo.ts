@@ -451,9 +451,10 @@ export class FxFifoEngine {
       }
 
       if (acquiring) {
-        events.push({ date, currency: trade.currency, quantity: amount, ecbRate, trigger: "conversion", commissionEur, broker: trade.broker, costInEur: new Decimal(trade.cost) });
+
+        events.push({ date, currency: trade.currency, quantity: amount, ecbRate, trigger: "conversion", commissionEur, costInEur: new Decimal(trade.cost), broker: trade.broker });
       } else {
-        events.push({ date, currency: trade.currency, quantity: amount.negated(), ecbRate, trigger: "conversion", commissionEur, broker: trade.broker, costInEur: new Decimal(trade.cost) });
+        events.push({ date, currency: trade.currency, quantity: amount.negated(), ecbRate, trigger: "conversion", commissionEur, costInEur: new Decimal(trade.cost), broker: trade.broker });
       }
     }
 
@@ -568,7 +569,8 @@ export class FxFifoEngine {
         // `greaterThan(0)`, not `isPositive()` — decimal.js treats +0 as positive,
         // and a zero-quantity event would make addLot compute 0/0 = NaN.
         if (net.greaterThan(0)) {
-          events.push({ date, currency: tx.currency, quantity: net, ecbRate, trigger: "dividend" , broker: tx.broker, costInEur: new Decimal(tx.costInEur)});
+          events.push({ date, currency: tx.currency, quantity: net, ecbRate, trigger: "dividend", costInEur: new Decimal(tx.costInEur), broker: trade.broker }
+});
         }
       } else if (tx.type === "Withholding Tax" || (tx.type === "Other Fees" && (tx.description.includes("CASH DIVIDEND")) && (tx.description.includes("FEE")))) {
       //} else if (tx.type === "Withholding Tax") {
