@@ -452,10 +452,12 @@ export class FxFifoEngine {
         }
       }
 
-      if (acquiring) {
 
+      if (acquiring) {
+        console.log(`[FX] Acquiring ${amount} ${trade.currency} on ${date} at rate ${ecbRate.toFixed(5)} EUR/${trade.currency}`);
         events.push({ date, currency: trade.currency, quantity: amount, ecbRate, trigger: "conversion", commissionEur, costInEur: new Decimal(trade.cost), broker: trade.broker });
       } else {
+        console.log(`[FX] Disposing ${amount} ${trade.currency} on ${date} at rate ${ecbRate.toFixed(5)} EUR/${trade.currency}`);
         events.push({ date, currency: trade.currency, quantity: amount.negated(), ecbRate, trigger: "conversion", commissionEur, costInEur: new Decimal(trade.cost), broker: trade.broker });
       }
     }
@@ -972,6 +974,7 @@ export class FxFifoEngine {
       }
     }
     lots.splice(idx, 0, lot);
+    console.log(`[${y}STKReadd${z}] ${lot.id} |${date} | f.Crea ${date}: re-added ${q.toFixed(2)} ${currency} at rate ${rate.toFixed(6)} EUR/${currency}`);
   }
 
   /**
@@ -1022,6 +1025,7 @@ export class FxFifoEngine {
         if (lot.quantity.lessThan(EPS)) lots.shift();
         remaining = remaining.minus(consumed);
         this.record("park", event, { quantityFcy: consumed, rate: lot.costPerUnit, lotAcquireDate: lot.acquireDate });
+        console.log(`[${y}STKPark${z}] ${lot.id} |${event.date} | f.Crea ${lot.acquireDate}: parked ${consumed.toFixed(2)} ${event.currency} at rate ${lot.costPerUnit.toFixed(6)} EUR/${event.currency}`);
       }
     }
 

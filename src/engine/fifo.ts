@@ -559,7 +559,7 @@ export class FifoEngine {
 
     while (remaining.greaterThan(0) && lots.length > 0) {
       const lot = lots[0]!;
-
+      console.log(`[FIFO] Consuming lot ${lot.id} for ${trade.symbol} (${trade.isin}) on ${normalizeDate(trade.tradeDate)}: remaining=${remaining}, lot.quantity=${lot.quantity}`);
       const consumed = Decimal.min(remaining, lot.quantity);
       const fractionOfSale = consumed.dividedBy(totalSellQuantity);
       const commissionShareFcy = commissionFcy.mul(fractionOfSale);
@@ -607,7 +607,7 @@ export class FifoEngine {
           underlyingIsin: trade.underlyingIsin ?? lot.underlyingIsin,
         } : undefined,
       }));
-
+      console.log(`[FIFO] Recorded disposal for ${trade.symbol} (${trade.isin}) on ${normalizeDate(trade.tradeDate)}: quantity=${consumed}, gainLossFcy=${gainLossFcy.toFixed(2)}, proceedsFcy=${proceedsFcy.toFixed(2)}, costBasisFcy=${costBasisFcy.toFixed(2)}, gainLossEur=${gainLossEur.toFixed(2)}`);
       // Reduce lot (in FCY)
       lot.quantity = lot.quantity.minus(consumed);
       lot.costInFcy = lot.costInFcy.minus(costBasisFcy);
@@ -1185,7 +1185,7 @@ export class FifoEngine {
         underlyingSymbol: ex.underlyingSymbol,
         underlyingIsin: ex.underlyingIsin,
       });
-
+      console.log(`[FIFO] Recorded underlying disposal for ${ex.underlyingSymbol} (${ex.underlyingIsin}) on ${date}: quantity=${consumed}, gainLossFcy=${partialProceedsFcy.minus(costBasisFcy).toFixed(2)}, proceedsFcy=${partialProceedsFcy.toFixed(2)}, costBasisFcy=${costBasisFcy.toFixed(2)}, gainLossEur=${gainLossEur.toFixed(2)}`);
       lot.quantity = lot.quantity.minus(consumed);
       lot.costInFcy = lot.costInFcy.minus(costBasisFcy);
       if (lot.quantity.isZero()) lots.shift();
