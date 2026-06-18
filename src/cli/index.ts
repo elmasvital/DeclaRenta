@@ -127,7 +127,7 @@ program
   .option("-f, --format <format>", "Output format: json, csv, or pdf", "json")
   .option("-b, --broker <name>", `Broker name. Auto-detected if omitted. Available: ${brokerParsers.map((p) => p.name).join(", ")}`)
   .option("--prior-losses <file>", "JSON file with prior year losses for carryforward (Art. 49 LIRPF)")
-  .option("--monodivisa", "Disable FX FIFO engine — treat all as EUR (like Autodeclaro/Taxdown)")
+  .option("--monodivisa", "Modo tradicional (como Autodeclaro/Taxdown/asesor): apaga el motor de divisa y valora el coste FCY al tipo del día de COMPRA (Art. 35.1), embebiendo el efecto divisa en la línea de la acción")
   .option("--skip-auto-convert", "No tratar las autoconversiones del bróker (AFx/FXCONV) como conversiones de divisa. Por defecto SÍ se procesan (IBKR no reconvierte a EUR al vender, así que el saldo en divisa es real). Actívalo solo si tu bróker hace round-trip completo y quieres ignorar el efecto divisa.")
   .option("--titulares <n>", "Number of account holders. >1 splits all amounts equally per contribuyente (Art. 11.3 LIRPF)", parseInt)
   .option("--crypto-rates <json>", "Manual EUR-per-unit quotes for crypto↔crypto swaps without an ECB rate. Inline JSON or path to a JSON file: [{ \"currency\": \"SOL\", \"date\": \"2024-03-01\", \"eurPerUnit\": \"120.50\" }]")
@@ -545,6 +545,7 @@ function formatReport(report: ReturnType<typeof generateTaxReport>) {
     year: report.year,
     casillas: {
       "0029_dividendos_brutos": report.dividends.grossIncome.toFixed(2),
+      "0597_retenciones_capital_mobiliario": report.dividends.spanishWithholding.toFixed(2),
       "intereses_margen_no_deducible_informativo": report.interest.paid.toFixed(2),
       "0027_intereses_cuentas": report.interest.earned.toFixed(2),
       "0304_ganancias_no_derivadas_transmision_base_general": report.generalGains.total.toFixed(2),
@@ -641,6 +642,7 @@ function printSummary(report: ReturnType<typeof generateTaxReport>) {
   console.error("");
   console.error("  RENDIMIENTOS CAPITAL MOBILIARIO");
   console.error(`    Casilla 0029 (Dividendos brutos):  ${report.dividends.grossIncome.toFixed(2)} EUR`);
+  console.error(`    Casilla 0597 (Retenciones cap. mob.): ${report.dividends.spanishWithholding.toFixed(2)} EUR`);
   console.error(`    Casilla 0027 (Intereses ganados):  ${report.interest.earned.toFixed(2)} EUR`);
   console.error(`    Intereses margen (no deducible, informativo):   ${report.interest.paid.toFixed(2)} EUR`);
   if (report.generalGains.total.greaterThan(0)) {
