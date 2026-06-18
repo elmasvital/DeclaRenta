@@ -569,8 +569,7 @@ export class FxFifoEngine {
         // `greaterThan(0)`, not `isPositive()` — decimal.js treats +0 as positive,
         // and a zero-quantity event would make addLot compute 0/0 = NaN.
         if (net.greaterThan(0)) {
-          events.push({ date, currency: tx.currency, quantity: net, ecbRate, trigger: "dividend", costInEur: new Decimal(tx.costInEur), broker: trade.broker }
-});
+          events.push({ date, currency: tx.currency, quantity: net, ecbRate, trigger: "dividend", costInEur: new Decimal(tx.costInEur||0), broker: tx.broker });
         }
       } else if (tx.type === "Withholding Tax" || (tx.type === "Other Fees" && (tx.description.includes("CASH DIVIDEND")) && (tx.description.includes("FEE")))) {
       //} else if (tx.type === "Withholding Tax") {
@@ -578,22 +577,22 @@ export class FxFifoEngine {
         // disposal. A positive-amount WHT (a refund) IS currency received → acquire.
         // Defensive: not observed in current broker exports, but symmetric and cheap.
         if (amount.greaterThan(0)) {
-          events.push({ date, currency: tx.currency, quantity: amount, ecbRate, trigger: "dividend" , broker: tx.broker, costInEur: new Decimal(tx.costInEur)});
+          events.push({ date, currency: tx.currency, quantity: amount, ecbRate, trigger: "dividend" , broker: tx.broker, costInEur: new Decimal(tx.costInEur||0) });
         }
       } else if (tx.type === "Broker Interest Received" || tx.type === "Bond Interest Received") {
         // Interest can also carry withholding (e.g. "WITHHOLDING ON CREDIT INT");
         // net it the same way — a withholding is a pago a cuenta whatever the income.
         const net = consumeWithholding(tx.currency, date, amount.abs());
         if (net.greaterThan(0)) {
-          events.push({ date, currency: tx.currency, quantity: net, ecbRate, trigger: "interest" , broker: tx.broker, costInEur: new Decimal(tx.costInEur)});
+          events.push({ date, currency: tx.currency, quantity: net, ecbRate, trigger: "interest" , broker: tx.broker, costInEur: new Decimal(tx.costInEur||0) });
         }
       } else if (tx.type === "Broker Interest Paid" || tx.type === "Bond Interest Paid") {
-        events.push({ date, currency: tx.currency, quantity: amount.abs().negated(), ecbRate, trigger: "interest" , broker: tx.broker, costInEur: new Decimal(tx.costInEur)});
+        events.push({ date, currency: tx.currency, quantity: amount.abs().negated(), ecbRate, trigger: "interest" , broker: tx.broker, costInEur: new Decimal(tx.costInEur||0) });
       } else if (tx.type === "Other Fees" || tx.type === "Commission Adjustments") {
         if (amount.lessThan(0)) {
-          events.push({ date, currency: tx.currency, quantity: amount.abs().negated(), ecbRate, trigger: "commission" , broker: tx.broker, costInEur: new Decimal(tx.costInEur)});
+          events.push({ date, currency: tx.currency, quantity: amount.abs().negated(), ecbRate, trigger: "commission" , broker: tx.broker, costInEur: new Decimal(tx.costInEur||0) });
         } else {
-          events.push({ date, currency: tx.currency, quantity: amount.abs(), ecbRate, trigger: "commission" , broker: tx.broker, costInEur: costInEur);
+          events.push({ date, currency: tx.currency, quantity: amount.abs(), ecbRate, trigger: "commission" , broker: tx.broker, costInEur: new Decimal(tx.costInEur||0) });
         }
       }
     }
