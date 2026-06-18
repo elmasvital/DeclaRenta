@@ -90,6 +90,7 @@ export interface Trade {
   underlyingIsin?: string;
   /** IBKR order ID — same value across partial-fill executions of one order. Used by the parser to collapse executions into one trade. */
   ibOrderID?: string;
+  broker?: string;
 }
 
 export interface CashTransaction {
@@ -104,6 +105,8 @@ export interface CashTransaction {
   amount: string;
   fxRateToBase: string;
   type: CashTransactionType;
+  broker?: string;
+  costInEur?: string;
   /**
    * Tax bucket for crypto reward income. Distinguishes a rendimiento del capital
    * mobiliario / interest (`"ahorro"` → savings base, e.g. staking, Simple Earn
@@ -158,6 +161,7 @@ export interface CorporateAction {
   amount: string;
   type: string;
   actionDescription: string;
+  broker?: string;
 }
 
 export interface OpenPosition {
@@ -174,6 +178,7 @@ export interface OpenPosition {
   positionValue: string;
   fifoPnlUnrealized: string;
   fxRateToBase: string;
+  broker?: string;
 }
 
 export interface SecurityInfo {
@@ -185,6 +190,7 @@ export interface SecurityInfo {
   assetCategory: AssetCategory;
   multiplier: string;
   subCategory: string;
+  broker?: string;
 }
 
 /** Cash balance at a foreign broker (for Modelo 720, category C — Cuentas) */
@@ -201,6 +207,8 @@ export interface CashBalance {
   institutionName?: string;
   /** Country code of the foreign account/institution when known. */
   countryCode?: string;
+  /** Broker name when known. */
+  broker?: string;
 }
 
 export type AssetCategory = "STK" | "OPT" | "FUT" | "FOP" | "FSFOP" | "CASH" | "BOND" | "FUND" | "WAR" | "CRYPTO" | "CFD";
@@ -229,4 +237,6 @@ export interface OptionExercise {
   multiplier: string;
   /** Market price of underlying at exercise (from paired delivery row, DGT V0137-23) */
   marketPrice?: string;
+  /** Broker name when known. */
+  broker?: string;
 }
