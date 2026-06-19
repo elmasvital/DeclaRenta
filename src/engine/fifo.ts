@@ -581,7 +581,8 @@ export class FifoEngine {
 
     while (remaining.greaterThan(0) && lots.length > 0) {
       const lot = lots[0]!;
-      console.log(`[FIFO] Consuming lot ${lot.id} for ${trade.symbol} (${trade.isin}) on ${normalizeDate(trade.tradeDate)}: remaining=${remaining}, lot.quantity=${lot.quantity}`);
+      //JMG. en esta fase se están catalogando los lotes que se van a consumir, pero no se está haciendo nada con ellos.
+      // console.log(`[FIFO] Consuming lot ${lot.id} for ${trade.symbol} (${trade.isin}) on ${normalizeDate(trade.tradeDate)}: remaining=${remaining}, lot.quantity=${lot.quantity}`);
       const consumed = Decimal.min(remaining, lot.quantity);
       const fractionOfSale = consumed.dividedBy(totalSellQuantity);
       const commissionShareFcy = commissionFcy.mul(fractionOfSale);
@@ -629,7 +630,8 @@ export class FifoEngine {
           underlyingIsin: trade.underlyingIsin ?? lot.underlyingIsin,
         } : undefined,
       }));
-      console.log(`[FIFO] Recorded disposal for ${trade.symbol} (${trade.isin}) on ${normalizeDate(trade.tradeDate)}: quantity=${consumed}, gainLossFcy=${gainLossFcy.toFixed(2)}, proceedsFcy=${proceedsFcy.toFixed(2)}, costBasisFcy=${costBasisFcy.toFixed(2)}, gainLossEur=${gainLossEur.toFixed(2)}`);
+      //Aqui se están catalogando las ventas, pero no se está haciendo nada con ellas. 
+      //console.log(`[FIFO] Recorded disposal for ${trade.symbol} (${trade.isin}) on ${normalizeDate(trade.tradeDate)}: quantity=${consumed}, gainLossFcy=${gainLossFcy.toFixed(2)}, proceedsFcy=${proceedsFcy.toFixed(2)}, costBasisFcy=${costBasisFcy.toFixed(2)}, gainLossEur=${gainLossEur.toFixed(2)}`);
       // Reduce lot (in FCY)
       lot.quantity = lot.quantity.minus(consumed);
       lot.costInFcy = lot.costInFcy.minus(costBasisFcy);

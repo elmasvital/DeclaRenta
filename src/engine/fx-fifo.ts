@@ -27,6 +27,8 @@ const g = "\x1b[32m"; //green
 const y = "\x1b[33m"; //yellow
 const m = "\x1b[35m"; //magenta
 const b = "\x1b[1m"; //bold
+const COPY_OPTION: boolean = false; // Si es true, se imprime la línea de COPY para copiar y pegar en el Excel
+
 
 /**
  * One foreign-currency event fed to {@link FxFifoEngine.processEvents}.
@@ -334,7 +336,7 @@ export class FxFifoEngine {
       const dateTXT = new Date(event.date).toLocaleDateString("es-ES");
       let ratio = event.trigger === "conversion" ? event.quantity.div(event.costInEur ? event.costInEur : new Decimal(1)).toFixed(5) : `\t${(1 / event.ecbRate.toFixed(5))}`;
       //      const eventORratio = `${event.costInEur ? event.costInEur : ratio}`;
-      const copyTXT = `COPY: ${dateTXT}\t\t\t${event.broker}\t${event.quantity}\t${ratio}`
+      const copyTXT = COPY_OPTION ? ` | COPY: ${dateTXT}\t\t\t${event.broker}\t${event.quantity}\t${ratio}` : "";
 
 
       if (event.kind === "stock_buy") {
@@ -355,7 +357,7 @@ export class FxFifoEngine {
           `Cant: ${g}${event.quantity} USD${z} | ` +
           `${costInEurTXT ? `${costInEurTXT}${z} | ` : ''}` +
           `Ratio: ${g}${ratio}${z}` +
-          ` | ${copyTXT}`
+          `${copyTXT}`
         );
 
       } else if (event.quantity.lessThan(0)) {
@@ -369,7 +371,7 @@ export class FxFifoEngine {
           `Cant: ${g}${event.quantity} USD${z} | ` +
           `${costInEurTXT ? `${costInEurTXT}${z} | ` : ''}` +
           `Ratio: ${g}${ratio}${z}` +
-          ` | ${copyTXT}`
+          `${copyTXT}`
 
         );
       }
@@ -454,10 +456,11 @@ export class FxFifoEngine {
 
 
       if (acquiring) {
-        console.log(`[FX] Acquiring ${amount} ${trade.currency} on ${date} at rate ${ecbRate.toFixed(5)} EUR/${trade.currency}`);
+        //aqui no es interseante el log, se estan catalogando los lotes que se van a adquirir, pero no se está haciendo nada con ellos.
+        //console.log(`[FX] Acquiring ${amount} ${trade.currency} on ${date} at rate ${ecbRate.toFixed(5)} EUR/${trade.currency}`);
         events.push({ date, currency: trade.currency, quantity: amount, ecbRate, trigger: "conversion", commissionEur, costInEur: new Decimal(trade.cost), broker: trade.broker });
       } else {
-        console.log(`[FX] Disposing ${amount} ${trade.currency} on ${date} at rate ${ecbRate.toFixed(5)} EUR/${trade.currency}`);
+        //console.log(`[FX] Disposing ${amount} ${trade.currency} on ${date} at rate ${ecbRate.toFixed(5)} EUR/${trade.currency}`);
         events.push({ date, currency: trade.currency, quantity: amount.negated(), ecbRate, trigger: "conversion", commissionEur, costInEur: new Decimal(trade.cost), broker: trade.broker });
       }
     }

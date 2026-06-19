@@ -175,8 +175,8 @@ document.getElementById("theme-toggle")?.addEventListener("click", () => {
  * FX engine skips trace capture at zero cost). The FX-FIFO trace is a
  * developer/advisor audit artifact that must never reach end users.
  */
-const isDebugMode = (): boolean =>
-  location.hash.includes("debug") || localStorage.getItem("declarenta_debug") === "1";
+const isDebugMode = (): boolean => true
+//location.hash.includes("debug") || localStorage.getItem("declarenta_debug") === "1";
 
 // ---------------------------------------------------------------------------
 // DOM references
