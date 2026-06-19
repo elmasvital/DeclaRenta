@@ -172,6 +172,7 @@ export interface FifoDisposal {
   underlyingSymbol?: string;
   /** Underlying ISIN */
   underlyingIsin?: string;
+  broker?: string;
 }
 
 /** Dividend received from a foreign security */
@@ -393,7 +394,7 @@ export interface FxLot {
   costPerUnit: Decimal;
   /** Total EUR cost for this lot */
   costInEur: Decimal;
-  
+
   broker?: string;
 }
 

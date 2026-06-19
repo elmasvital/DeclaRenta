@@ -58,6 +58,8 @@ interface BuyEvent {
   date: string;
   /** Remaining repurchased quantity not yet used to block a loss (the consumable budget). */
   remainingQty: Decimal;
+  /** The broker through which the buy was executed. */
+  broker?: string;
 }
 
 /** A deferred loss attached to a repurchased lot, released as that lot is later sold. */
@@ -105,7 +107,7 @@ export function detectWashSales(disposals: FifoDisposal[], allTrades: Trade[]): 
       events = [];
       buysByAsset.set(key, events);
     }
-    events.push({ time: d.getTime(), date: normalizeDay(trade.tradeDate), remainingQty: qty });
+    events.push({ time: d.getTime(), date: normalizeDay(trade.tradeDate), remainingQty: qty, broker: trade.broker });
   }
   for (const events of buysByAsset.values()) {
     events.sort((a, b) => a.time - b.time);
