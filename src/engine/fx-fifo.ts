@@ -75,7 +75,7 @@ export interface FxEvent {
   trigger: FxTrigger;
   /** Commission in EUR (positive = cost paid). Increases cost basis on BUY, reduces proceeds on SELL. */
   commissionEur?: Decimal;
-  broker?: string;
+  brokerSource?: string;
   costInEur?: Decimal;
   symbol?: string | "";
 
@@ -338,50 +338,28 @@ export class FxFifoEngine {
       const dateTXT = new Date(event.date).toLocaleDateString("es-ES");
       let ratio = event.trigger === "conversion" ? event.quantity.div(event.costInEur ? event.costInEur : new Decimal(1)).toFixed(5) : `\t${(1 / event.ecbRate.toFixed(5))}`;
       //      const eventORratio = `${event.costInEur ? event.costInEur : ratio}`;
-      const copyTXT = COPY_OPTION ? ` | COPY: ${dateTXT}\t\t\t${event.broker}\t${event.quantity}\t${ratio}` : "";
+      const copyTXT = COPY_OPTION ? ` | COPY: ${dateTXT}\t\t\t${event.brokerSource}\t${event.quantity}\t${ratio}` : "";
 
 
       if (event.kind === "stock_buy") {
         //COMPRA ACCION
         this.parkPrincipal(event);
-        console.log(`${c}[BUYSTK]${z} ${event.broker ? `${event.broker} | ` : ''}${b}${triggerTXT.padEnd(5)}${z} | ${event.symbol ? `${event.symbol} | ` : ''}${g}${dateTXT}${z} | Cant: ${g}${event.costFcy} USD${z} | Ratio: ${g}${ratio}${z}${copyTXT}`);
+        console.log(`${c}[BUYSTK]${z} ${event.brokerSource ? `${event.brokerSource} | ` : ''}${b}${triggerTXT.padEnd(5)}${z} | ${event.symbol ? `${event.symbol} | ` : ''}${g}${dateTXT}${z} | Cant: ${g}${event.costFcy} USD${z} | Ratio: ${g}${ratio}${z}${copyTXT}`);
       } else if (event.kind === "stock_sell") {
         //VENTA ACCION
         this.unparkAndReadd(event);
-        console.log(`${c}[SELLSTK]${z} ${event.broker ? `${event.broker} | ` : ''}${b}${triggerTXT.padEnd(5)}${z} | ${event.symbol ? `${event.symbol} | ` : ''}${g}${dateTXT}${z} | Cant: ${g}${event.proceedsFcy} USD${z} | Ratio: ${g}${ratio}${z}${copyTXT}`);
+        console.log(`${c}[SELLSTK]${z} ${event.brokerSource ? `${event.brokerSource} | ` : ''}${b}${triggerTXT.padEnd(5)}${z} | ${event.symbol ? `${event.symbol} | ` : ''}${g}${dateTXT}${z} | Cant: ${g}${event.proceedsFcy} USD${z} | Ratio: ${g}${ratio}${z}${copyTXT}`);
       } else if (event.quantity.greaterThan(0)) {
         //ADQUISICION DE MONEDA
         const lotId = this.addLot(event);
 
         // Formato ordenado y con espaciado fijo (padding) para que si imprimes varios logs, queden alineados
-        logO({ etiqueta: "FXAdd", lotId: lotId, broker: event.broker, trigger: event.trigger.toUpperCase(), quantity: event.quantity.toString() });
-
-        // console.log(
-        //   `[${g}FXAdd${z}] ${lotId} ` +
-        //   `${event.broker ? `${event.broker} | ` : ''}` +
-        //   `${b}${triggerTXT.padEnd(5)}${z} | ` +
-        //   `${g}${dateTXT}${z} | ` +
-        //   `Cant: ${g}${event.quantity} USD${z} | ` +
-        //   `${costInEurTXT ? `${costInEurTXT}${z} | ` : ''}` +
-        //   `Ratio: ${g}${ratio}${z}` +
-        //   `${copyTXT}`
-        // );
+        logO({ etiqueta: "FXAdd", lotId: lotId, brokerSource: event.brokerSource, trigger: event.trigger.toUpperCase(), quantity: event.quantity.toString() });
 
       } else if (event.quantity.lessThan(0)) {
         //VENTA
+        //logO Están dentro de consumeLots
         this.consumeLots(event);
-
-        // console.log(
-        //   `[${r}FXCons${z}] $${lotId}` +
-        //   `${event.broker ? `${event.broker} | ` : ''}` +
-        //   `${b}${event.trigger.toUpperCase().padEnd(5)}${z} | ` +
-        //   `${g}${dateTXT}${z} | ` +
-        //   `Cant: ${g}${event.quantity} USD${z} | ` +
-        //   `${costInEurTXT ? `${costInEurTXT}${z} | ` : ''}` +
-        //   `Ratio: ${g}${ratio}${z}` +
-        //   `${copyTXT}`
-
-        // );
       }
     }
 
@@ -466,10 +444,10 @@ export class FxFifoEngine {
       if (acquiring) {
         //aqui no es interseante el log, se estan catalogando los lotes que se van a adquirir, pero no se está haciendo nada con ellos.
         //console.log(`[FX] Acquiring ${amount} ${trade.currency} on ${date} at rate ${ecbRate.toFixed(5)} EUR/${trade.currency}`);
-        events.push({ date, currency: trade.currency, quantity: amount, ecbRate, trigger: "conversion", commissionEur, costInEur: new Decimal(trade.cost), broker: trade.broker });
+        events.push({ date, currency: trade.currency, quantity: amount, ecbRate, trigger: "conversion", commissionEur, costInEur: new Decimal(trade.cost), brokerSource: trade.brokerSource });
       } else {
         //console.log(`[FX] Disposing ${amount} ${trade.currency} on ${date} at rate ${ecbRate.toFixed(5)} EUR/${trade.currency}`);
-        events.push({ date, currency: trade.currency, quantity: amount.negated(), ecbRate, trigger: "conversion", commissionEur, costInEur: new Decimal(trade.cost), broker: trade.broker});
+        events.push({ date, currency: trade.currency, quantity: amount.negated(), ecbRate, trigger: "conversion", commissionEur, costInEur: new Decimal(trade.cost), brokerSource: trade.brokerSource });
       }
     }
 
@@ -584,7 +562,7 @@ export class FxFifoEngine {
         // `greaterThan(0)`, not `isPositive()` — decimal.js treats +0 as positive,
         // and a zero-quantity event would make addLot compute 0/0 = NaN.
         if (net.greaterThan(0)) {
-          events.push({ date, currency: tx.currency, quantity: net, ecbRate, trigger: "dividend", costInEur: new Decimal(tx.costInEur || 0), broker: tx.broker, symbol: tx.symbol});
+          events.push({ date, currency: tx.currency, quantity: net, ecbRate, trigger: "dividend", costInEur: new Decimal(tx.costInEur || 0), brokerSource: tx.brokerSource, symbol: tx.symbol });
         }
       } else if (tx.type === "Withholding Tax" || (tx.type === "Other Fees" && (tx.description.includes("CASH DIVIDEND")) && (tx.description.includes("FEE")))) {
         //} else if (tx.type === "Withholding Tax") {
@@ -592,22 +570,22 @@ export class FxFifoEngine {
         // disposal. A positive-amount WHT (a refund) IS currency received → acquire.
         // Defensive: not observed in current broker exports, but symmetric and cheap.
         if (amount.greaterThan(0)) {
-          events.push({ date, currency: tx.currency, quantity: amount, ecbRate, trigger: "dividend", broker: tx.broker, costInEur: new Decimal(tx.costInEur || 0), symbol: tx.symbol });
+          events.push({ date, currency: tx.currency, quantity: amount, ecbRate, trigger: "dividend", brokerSource: tx.brokerSource, costInEur: new Decimal(tx.costInEur || 0), symbol: tx.symbol });
         }
       } else if (tx.type === "Broker Interest Received" || tx.type === "Bond Interest Received") {
         // Interest can also carry withholding (e.g. "WITHHOLDING ON CREDIT INT");
         // net it the same way — a withholding is a pago a cuenta whatever the income.
         const net = consumeWithholding(tx.currency, date, amount.abs());
         if (net.greaterThan(0)) {
-          events.push({ date, currency: tx.currency, quantity: net, ecbRate, trigger: "interest", broker: tx.broker, costInEur: new Decimal(tx.costInEur || 0) });
+          events.push({ date, currency: tx.currency, quantity: net, ecbRate, trigger: "interest", brokerSource: tx.brokerSource, costInEur: new Decimal(tx.costInEur || 0) });
         }
       } else if (tx.type === "Broker Interest Paid" || tx.type === "Bond Interest Paid") {
-        events.push({ date, currency: tx.currency, quantity: amount.abs().negated(), ecbRate, trigger: "interest", broker: tx.broker, costInEur: new Decimal(tx.costInEur || 0), symbol: tx.symbol });
+        events.push({ date, currency: tx.currency, quantity: amount.abs().negated(), ecbRate, trigger: "interest", brokerSource: tx.brokerSource, costInEur: new Decimal(tx.costInEur || 0), symbol: tx.symbol });
       } else if (tx.type === "Other Fees" || tx.type === "Commission Adjustments") {
         if (amount.lessThan(0)) {
-          events.push({ date, currency: tx.currency, quantity: amount.abs().negated(), ecbRate, trigger: "commission", broker: tx.broker, costInEur: new Decimal(tx.costInEur || 0), symbol: tx.symbol });
+          events.push({ date, currency: tx.currency, quantity: amount.abs().negated(), ecbRate, trigger: "commission", brokerSource: tx.brokerSource, costInEur: new Decimal(tx.costInEur || 0), symbol: tx.symbol });
         } else {
-          events.push({ date, currency: tx.currency, quantity: amount.abs(), ecbRate, trigger: "commission", broker: tx.broker, costInEur: new Decimal(tx.costInEur || 0) });
+          events.push({ date, currency: tx.currency, quantity: amount.abs(), ecbRate, trigger: "commission", brokerSource: tx.brokerSource, costInEur: new Decimal(tx.costInEur || 0) });
         }
       }
     }
@@ -705,7 +683,7 @@ export class FxFifoEngine {
         // isin/symbol but parked nothing (no backing BUY) → no match under this
         // key → it falls through to the safe sale-rate re-add (full-proceeds).
         positionKey: FxFifoEngine.positionKey(d),
-        broker: d.broker,
+        brokerSource: d.brokerSource,
         symbol: d.symbol
       });
     }
@@ -801,7 +779,7 @@ export class FxFifoEngine {
         // producer (extractStockProceedsFxEvents), so the SELL of this exact
         // position reclaims the principal parked here and no other.
         positionKey: FxFifoEngine.positionKey(trade),
-        broker: trade.broker,
+        brokerSource: trade.brokerSource,
         symbol: trade.symbol
       });
     }
@@ -817,7 +795,7 @@ export class FxFifoEngine {
       || exch === "FXCONV" || notes.includes("AFX");
   }
 
-  private addLot(event: FxEvent): string|undefined {
+  private addLot(event: FxEvent): string | undefined {
     // Defense-in-depth: never create a lot for a non-positive quantity — costPerUnit
     // would be 0/0 = NaN and silently poison all later FIFO math for this currency.
     if (!event.quantity.greaterThan(0)) return;
@@ -844,7 +822,7 @@ export class FxFifoEngine {
 
   }
 
-  private consumeLots(event: FxEvent): string|undefined {
+  private consumeLots(event: FxEvent): string | undefined {
     let remaining = event.quantity.abs();
     const totalQty = remaining;
     const lots = this.lots.get(event.currency);
@@ -869,7 +847,7 @@ export class FxFifoEngine {
         lotId: "UNKNOWN",
       });
       this.record("dispose", event, { quantityFcy: remaining, rate: event.ecbRate, costBasisEur: netProceeds, proceedsEur: netProceeds, gainLossEur: new Decimal(0), lotId: "UNKNOWN", note: "sin lotes previos → ganancia FX = 0" });
-      logO({ etiqueta: "FXCons",lotId:"UNKOWN", broker: event.broker, trigger: event.trigger.toUpperCase(), quantity: event.quantity.toString() });
+      logO({ etiqueta: "FXCons", lotId: "UNKOWN", brokerSource: event.brokerSource, trigger: event.trigger.toUpperCase(), quantity: event.quantity.toString() });
       return "UNKNOWN";
     }
 
@@ -912,7 +890,7 @@ export class FxFifoEngine {
 
       remaining = remaining.minus(consumed);
       this.record("dispose", event, { quantityFcy: consumed, rate: event.ecbRate, costBasisEur, proceedsEur, gainLossEur: proceedsEur.minus(costBasisEur), lotId: lotIdConsumed, lotAcquireDate: lot.acquireDate });
-      logO({ etiqueta: "FXConsDispose",lotId:lot.id, broker: event.broker, trigger: event.trigger.toUpperCase(), quantity: consumed.toString() });
+      logO({ etiqueta: "FXConsDispose", lotId: lot.id, brokerSource: event.brokerSource, trigger: event.trigger.toUpperCase(), quantity: consumed.toString() });
     }
 
     if (remaining.greaterThan(0)) {
@@ -1224,7 +1202,7 @@ interface LogOperacionParams {
   etiqueta: string;
   colorEtiqueta?: string;
   lotId?: string;
-  broker?: string;
+  brokerSource?: string;
   triggerTXT?: string;
   dateTXT?: string;
   quantity?: string | number;
@@ -1242,7 +1220,7 @@ export function logOperacion({
   etiqueta,
   colorEtiqueta = colores.green,
   lotId = "",
-  broker = "",
+  brokerSource = "",
   triggerTXT = "",
   dateTXT = "",
   quantity = "",
@@ -1260,7 +1238,7 @@ export function logOperacion({
   let msg = `[${colorEtiqueta}${etiqueta}${reset}] `;
 
   if (lotId) msg += `${lotId} | `;
-  if (broker) msg += `${broker} | `;
+  if (brokerSource) msg += `${brokerSource} | `;
   if (triggerTXT) msg += `${bold}${triggerTXT.padEnd(14)}${reset} | `;
   if (dateTXT) msg += `${cn(dateTXT)} | `;
   if (quantity !== "") msg += `Cant: ${cn(quantity)} ${moneda} | `;

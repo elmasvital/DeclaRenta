@@ -90,7 +90,7 @@ export interface Trade {
   underlyingIsin?: string;
   /** IBKR order ID — same value across partial-fill executions of one order. Used by the parser to collapse executions into one trade. */
   ibOrderID?: string;
-  broker?: string;
+
 }
 
 export interface CashTransaction {
@@ -105,7 +105,7 @@ export interface CashTransaction {
   amount: string;
   fxRateToBase: string;
   type: CashTransactionType;
-  broker?: string;
+  brokerSource?: string;
   costInEur?: string;
   /**
    * Tax bucket for crypto reward income. Distinguishes a rendimiento del capital

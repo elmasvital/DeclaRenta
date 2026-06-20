@@ -172,7 +172,8 @@ export interface FifoDisposal {
   underlyingSymbol?: string;
   /** Underlying ISIN */
   underlyingIsin?: string;
-  broker?: string;
+  /** Broker source of the trade (for audit traceability) */
+  brokerSource?: string;
 }
 
 /** Dividend received from a foreign security */

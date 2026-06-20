@@ -436,7 +436,7 @@ function mapCashTransaction(raw: Record<string, string>): CashTransaction {
     amount: raw.amount ?? "0",
     fxRateToBase: raw.fxRateToBase ?? "1",
     type: (raw.type ?? "") as CashTransaction["type"],
-    broker:"IBKR"
+    brokerSource: "IBKR"
   };
 }
 

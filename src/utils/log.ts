@@ -34,13 +34,13 @@ export const colorEtiq: Record<string, string> = {
 };
 
 // Lista de elementos permitidos si está vacío [] los admite todos.
-export const brokersPerm: string[] = [];
+export const brokersPerm: string[] = []; //["Binance", "IBKR", "LY"]; // Ejemplo de cómo filtrar por brokers específicos
 
 export interface LogOperacionParams {
   etiqueta: string;
   colorEtiqueta?: string; // Sigue sirviendo por si quieres forzar un color manual en un log específico
   lotId?: string;
-  broker?: string;
+  brokerSource?: string;
   trigger?: string;
   dateTXT?: string;
   quantity?: string | number;
@@ -55,7 +55,7 @@ export function logO({
   etiqueta,
   colorEtiqueta, // Quitamos el valor por defecto de aquí para procesarlo abajo
   lotId = "",
-  broker = "",
+  brokerSource: brokerSource = "",
   trigger = "",
   dateTXT = "",
   quantity = "",
@@ -67,7 +67,7 @@ export function logO({
 }: LogOperacionParams): void {
 
   // Filtro de brokers
-  if (brokersPerm.length > 0 && !brokersPerm.includes(broker)) {
+  if (brokersPerm.length > 0 && !brokersPerm.includes(brokerSource)) {
     return;
   }
 
@@ -83,7 +83,7 @@ export function logO({
   let msg = `[${colorFinalEtiqueta}${etiqueta}${reset}] `;
 
   if (lotId) msg += `${lotId} | `;
-  if (broker) msg += `${broker} | `;
+  if (brokerSource) msg += `${brokerSource} | `;
   if (trigger) msg += `${bold}${trigger.padEnd(14)}${reset} | `;
   if (dateTXT) msg += `${cn(dateTXT)} | `;
   if (quantity !== "") msg += `Cant: ${cn(quantity)} ${moneda} | `;

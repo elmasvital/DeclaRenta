@@ -16,6 +16,7 @@ import type { CashTransaction, Trade } from "../types/ibkr.js";
 import type { ManualRateQuote, TaxMessage } from "../types/tax.js";
 import { isFiat, isEcbResolvable } from "../engine/ecb.js";
 import { parseCsvLine, stripBom, toFiniteDecimal } from "./csv-utils.js";
+import { logO } from "@/utils/log.js";
 
 // ---------------------------------------------------------------------------
 // Header detection
@@ -518,7 +519,9 @@ function parseBinanceTxCsv(lines: string[]): Statement {
         taxBucket: isAhorro ? "ahorro" : "general",
         rewardQuantity: r.change.abs().toString(),
         ...(r.eurValue !== null ? { rewardCostBasisEur: r.eurValue.abs().toString() } : {}),
+        brokerSource: "Binance",
       });
+      console.log(`BINANCE Income: ${r.operation} ${r.coin} ${r.change.toString()} on ${r.tradeDate}`)
     }
   }
 
@@ -762,7 +765,9 @@ function emitCryptoSwap(trades: Trade[], sell: NetLeg, buy: NetLeg, label: strin
       openCloseIndicator: "O",
       commissionCurrency: sell.coin,
       commission: "0",
+      brokerSource: "Binance"
     });
+    console.log(`BINANCE ${label}: ${sell.coin} ${sellQty.toString()} → ${buy.coin} ${buyQty.toString()} on ${buy.date}`);
     return;
   }
 
@@ -785,7 +790,9 @@ function emitCryptoSwap(trades: Trade[], sell: NetLeg, buy: NetLeg, label: strin
       openCloseIndicator: "C",
       commissionCurrency: buy.coin,
       commission: "0",
+      brokerSource: "Binance"
     });
+    console.log(`BINANCE ${label}: ${sell.coin} ${sellQty.toString()} → ${buy.coin} ${buyQty.toString()} on ${buy.date}`);
     return;
   }
 
@@ -807,7 +814,9 @@ function emitCryptoSwap(trades: Trade[], sell: NetLeg, buy: NetLeg, label: strin
     openCloseIndicator: "C",
     commissionCurrency: buy.coin,
     commission: "0",
+    brokerSource: "Binance"
   });
+  console.log(`BINANCE ${label}: ${sell.coin} ${sellQty.toString()} → ${buy.coin} ${buyQty.toString()} on ${buy.date}`);
   trades.push({
     ...CRYPTO_TRADE_BASE,
     tradeID: `binance-tx-buy-${buy.date}-${buy.coin}-${buy.index}`,
@@ -825,7 +834,9 @@ function emitCryptoSwap(trades: Trade[], sell: NetLeg, buy: NetLeg, label: strin
     openCloseIndicator: "O",
     commissionCurrency: sell.coin,
     commission: "0",
+    brokerSource: "Binance"
   });
+  console.log(`BINANCE ${label}: ${buy.coin} ${buyQty.toString()} → ${sell.coin} ${sellQty.toString()} on ${sell.date}`);
 }
 
 /**
@@ -1062,6 +1073,7 @@ function parseBinanceCsv(lines: string[]): Statement {
       multiplier: "1",
       brokerSource: "Binance",
     });
+    console.log(`BINANCE ${sideLower.toUpperCase()}: ${symbol} ${executed.toString()} @ ${price.toString()} on ${tradeDate}`)
   }
 
   return {

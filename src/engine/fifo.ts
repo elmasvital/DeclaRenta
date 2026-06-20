@@ -630,7 +630,7 @@ export class FifoEngine {
           underlyingIsin: trade.underlyingIsin ?? lot.underlyingIsin,
         } : undefined,
       }));
-      //Aqui se están catalogando las ventas, pero no se está haciendo nada con ellas. 
+      //Aqui se están catalogando las ventas, pero no se está haciendo nada con ellas.
       //console.log(`[FIFO] Recorded disposal for ${trade.symbol} (${trade.isin}) on ${normalizeDate(trade.tradeDate)}: quantity=${consumed}, gainLossFcy=${gainLossFcy.toFixed(2)}, proceedsFcy=${proceedsFcy.toFixed(2)}, costBasisFcy=${costBasisFcy.toFixed(2)}, gainLossEur=${gainLossEur.toFixed(2)}`);
       // Reduce lot (in FCY)
       lot.quantity = lot.quantity.minus(consumed);
