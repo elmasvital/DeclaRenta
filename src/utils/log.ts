@@ -1,4 +1,8 @@
-// logger.ts
+// Logging utility for operations in the FX FIFO engine
+// Utilidad separada de la versión oficial
+
+import Decimal from "decimal.js";
+
 
 export interface Colores {
   reset: string;
@@ -40,31 +44,40 @@ export interface LogOperacionParams {
   etiqueta: string;
   colorEtiqueta?: string; // Sigue sirviendo por si quieres forzar un color manual en un log específico
   lotId?: string;
+  symbol?: string;
   brokerSource?: string;
   trigger?: string;
-  dateTXT?: string;
+  date?: string;
   quantity?: string | number;
   moneda?: string;
   costInEur?: number | null;
-  ratio?: number | null;
+  ratio?: Decimal | null;
   copyTXT?: string;
   colorNum?: string;
+  costFcy?: Decimal;
 }
 
 export function logO({
   etiqueta,
   colorEtiqueta, // Quitamos el valor por defecto de aquí para procesarlo abajo
   lotId = "",
+  symbol = "",
   brokerSource: brokerSource = "",
   trigger = "",
-  dateTXT = "",
+  date = "",
   quantity = "",
+  costFcy= undefined,
   moneda = "USD",
   costInEur = null,
   ratio = null,
   copyTXT = "",
   colorNum = colores.green
 }: LogOperacionParams): void {
+  const dFmat: Intl.DateTimeFormatOptions = {
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit"
+  };
 
   // Filtro de brokers
   if (brokersPerm.length > 0 && !brokersPerm.includes(brokerSource)) {
@@ -81,14 +94,17 @@ export function logO({
 
   // Usamos colorFinalEtiqueta para pintar la etiqueta
   let msg = `[${colorFinalEtiqueta}${etiqueta}${reset}] `;
+  date = date ? new Date(date).toLocaleDateString("es-ES",dFmat) : "";
 
   if (lotId) msg += `${lotId} | `;
   if (brokerSource) msg += `${brokerSource} | `;
   if (trigger) msg += `${bold}${trigger.padEnd(14)}${reset} | `;
-  if (dateTXT) msg += `${cn(dateTXT)} | `;
+  if (symbol) msg += `${symbol.toUpperCase()} | `;
+  if (date) msg += `${cn(date)} | `;
   if (quantity !== "") msg += `Cant: ${cn(quantity)} ${moneda} | `;
+  if (costFcy !== undefined) msg += `CostFcy: ${cn(Number(costFcy).toFixed(3))} ${moneda} | `;
   if (costInEur !== null) msg += `CostEurBroker: ${cn(costInEur)} EUR | `;
-  if (ratio !== null) msg += `Ratio: ${cn(ratio)} `;
+  if (ratio !== null) msg += `Ratio: ${cn(ratio.toFixed(4))} `;
   if (copyTXT) msg += copyTXT;
 
   console.log(msg.trim());

@@ -20,6 +20,7 @@ import { getEcbRate, isEcbResolvable, lookupRateInMap } from "./ecb.js";
 import { daysBetween, normalizeDate } from "./dates.js";
 import { logO } from "@/utils/log.js";
 
+
 // Colores ANSI para la terminal
 const z = "\x1b[0m"; //reset
 const r = "\x1b[31m"; //red
@@ -338,24 +339,28 @@ export class FxFifoEngine {
       const costInEurTXT = event.costInEur ? `CostEurBroker: ${g}${event.costInEur} EUR` : "";
       const triggerTXT = event.trigger.toUpperCase();
       const dateTXT = new Date(event.date).toLocaleDateString("es-ES");
-      let ratio = event.trigger === "conversion" ? event.quantity.div(event.costInEur ? event.costInEur : new Decimal(1)).toFixed(5) : `\t${(1 / event.ecbRate.toFixed(5))}`;
+      let ratio: Decimal = event.trigger === "conversion"
+        ? event.quantity.div(event.costInEur ? event.costInEur : new Decimal(1))
+        : (new Decimal(1).div(event.ecbRate));
+
       //      const eventORratio = `${event.costInEur ? event.costInEur : ratio}`;
       const copyTXT = COPY_OPTION ? ` | COPY: ${dateTXT}\t\t\t${event.brokerSource}\t${event.quantity}\t${ratio}` : "";
 
 
       if (event.kind === "stock_buy") {
         //COMPRA ACCION
-        this.parkPrincipal(event);
-        console.log(`${c}[BUYSTK]${z} ${event.brokerSource ? `${event.brokerSource} | ` : ''}${b}${triggerTXT.padEnd(5)}${z} | ${event.symbol ? `${event.symbol} | ` : ''}${g}${dateTXT}${z} | Cant: ${g}${event.costFcy} USD${z} | Ratio: ${g}${ratio}${z}${copyTXT}`);
+        //this.parkPrincipal(event);
+        //console.log(`${g}[STKBUY]${z} ${event.brokerSource ? `${event.brokerSource} | ` : ''}${b}${triggerTXT.padEnd(5)}${z} | ${event.symbol ? `${event.symbol} | ` : ''}${g}${dateTXT}${z} | Cant: ${g}${event.costFcy} USD${z} | Ratio: ${g}${ratio}${z}${copyTXT}`);
+        logO({etiqueta: "STKBUY", brokerSource: event.brokerSource, trigger: event.trigger, symbol: event.symbol, costFcy: event.costFcy?.toString(), ratio, date: event.date });
       } else if (event.kind === "stock_sell") {
         //VENTA ACCION
         this.unparkAndReadd(event);
-        console.log(`${c}[SELLSTK]${z} ${event.brokerSource ? `${event.brokerSource} | ` : ''}${b}${triggerTXT.padEnd(5)}${z} | ${event.symbol ? `${event.symbol} | ` : ''}${g}${dateTXT}${z} | Cant: ${g}${event.proceedsFcy} USD${z} | Ratio: ${g}${ratio}${z}${copyTXT}`);
+        //console.log(`${g}[STKSELL]${z} ${event.brokerSource ? `${event.brokerSource} | ` : ''}${b}${triggerTXT.padEnd(5)}${z} | ${event.symbol ? `${event.symbol} | ` : ''}${g}${dateTXT}${z} | Cant: ${g}${event.proceedsFcy} USD${z} | Ratio: ${g}${ratio}${z}${copyTXT}`);
+        logO({etiqueta: "STKSELL", brokerSource: event.brokerSource, trigger: event.trigger, symbol: event.symbol, costFcy: event.proceedsFcy?.toString(), ratio, date: event.date });
       } else if (event.quantity.greaterThan(0)) {
         //ADQUISICION DE MONEDA
         const lotId = this.addLot(event);
 
-        // Formato ordenado y con espaciado fijo (padding) para que si imprimes varios logs, queden alineados
         logO({ etiqueta: "FXAdd", lotId: lotId, brokerSource: event.brokerSource, trigger: event.trigger.toUpperCase(), quantity: event.quantity.toString() });
 
       } else if (event.quantity.lessThan(0)) {
@@ -835,26 +840,7 @@ export class FxFifoEngine {
     return event.ecbRate;
   }
 
-  /** Effective EUR-per-FCY rate for an event: the broker's real applied rate
-   *  (realEurAmount / |quantity|) when supplied (issue #253), else the ECB rate.
-   *  ONE helper used by BOTH addLot and consumeLots so the acquire and dispose
-   *  legs are ALWAYS valued on the same basis — never a half-real/half-ECB mix. */
-  private static effectiveRate(event: FxEvent): Decimal {
-    // A Decimal is always truthy, so re-check finite & strictly-positive here
-    // (defense-in-depth, like the rest of this file): a 0/negative/NaN
-    // realEurAmount must fall back to ECB, never zero out (or sign-flip) the
-    // conversion. A real EUR principal is positive by definition, so a negative
-    // is rejected, not silently absorbed via abs().
-    if (
-      event.realEurAmount &&
-      event.realEurAmount.isFinite() &&
-      event.realEurAmount.greaterThan(0) &&
-      event.quantity.abs().greaterThan(0)
-    ) {
-      return event.realEurAmount.div(event.quantity.abs());
-    }
-    return event.ecbRate;
-  }
+
 
   private addLot(event: FxEvent): string | undefined {
     // Defense-in-depth: never create a lot for a non-positive quantity — costPerUnit
@@ -1188,18 +1174,33 @@ export class FxFifoEngine {
     // Unmatched sell (no parked principal left, e.g. position bought outside the
     // data window): re-add the remainder of `readd` at the sale rate. This is the
     // branch that makes a sell-without-tracked-buy equal the full-proceeds model.
-    if (need.greaterThan(EPS) && placed.lessThan(readd.minus(EPS))) {
-      const g = Decimal.min(need, readd.minus(placed));
-      this.pushPoolLot(event.currency, event.date, g, saleRate);
-      placed = placed.plus(g);
-      this.record("unpark", event, { quantityFcy: g, rate: saleRate, note: "venta sin compra rastreada → re-añadido al tipo de venta (full-proceeds)" });
-    }
+    // if (need.greaterThan(EPS) && placed.lessThan(readd.minus(EPS))) {
+    //   const g = Decimal.min(need, readd.minus(placed));
+    //   this.pushPoolLot(event.currency, event.date, g, saleRate);
+    //   placed = placed.plus(g);
+    //   this.record("unpark", event, { quantityFcy: g, rate: saleRate, note: "venta sin compra rastreada → re-añadido al tipo de venta (full-proceeds)" });
+    // }
 
     // Profit (proceeds beyond principal) = fresh dollars at the sale rate.
-    const profit = proc.minus(placed);
+    // const profit = proc.minus(placed);
+    // if (profit.greaterThan(EPS)) {
+    //   this.pushPoolLot(event.currency, event.date, profit, saleRate);
+    //   this.record("profit", event, { quantityFcy: profit, rate: saleRate });
+    // }
+
+    const profit = proc.minus(cost);
+    //JMG Introducimos la cantidad a añadir o detraer en el campo quantity
+    event.quantity = profit.abs();
     if (profit.greaterThan(EPS)) {
-      this.pushPoolLot(event.currency, event.date, profit, saleRate);
+      // this.pushPoolLot(event.currency, event.date, profit, saleRate);
+      this.addLot(event);
       this.record("profit", event, { quantityFcy: profit, rate: saleRate });
+      logO({ etiqueta: "FXProfit", lotId: "PROFIT", brokerSource: event.brokerSource, trigger: event.trigger.toUpperCase(), quantity: profit.toString() });
+      //venta en minuvalía
+    } else if (profit.lessThan(EPS)) {
+      this.lossFxFifo(event);
+      this.record("discard", event, { quantityFcy: profit.abs(), rate: saleRate });
+      logO({ etiqueta: "FXLoss", lotId: "LOSS", brokerSource: event.brokerSource, trigger: event.trigger.toUpperCase(), quantity: profit.abs().toString() });
     }
   }
 
@@ -1235,7 +1236,117 @@ export class FxFifoEngine {
       }
     }
   }
+
+  //JMG. IMPLEMENTACIÓN DE UNA FUNCIÓN MODIFICADA DESDE CONSUMELOT.
+  // ESTA FUNCIÓN SE SEPARA DE LA RAMA MAIN Y LA OPINIÓN DE SU AUTOR SOBRE
+  // GESTIÓN DE FXFIFO.
+  // En caso de pérdida, el proceso es similar a consumeLots pero con algunas diferencias:
+  // Se reduce la cantidad de la minusvalía pero no se registra una venta de divisa.
+
+  private lossFxFifo(event: FxEvent): string | undefined {
+  let  remaining = event.quantity.abs();
+  const totalQty = remaining;
+  const lots = this.lots.get(event.currency);
+
+  if (!lots || lots.length === 0) {
+    const entry = this.fxMissing.get(event.currency) ?? { count: 0, totalQty: new Decimal(0) };
+    entry.count++;
+    entry.totalQty = entry.totalQty.plus(remaining);
+    this.fxMissing.set(event.currency, entry);
+    const effRate = FxFifoEngine.effectiveRate(event);
+    const proceedsEur = remaining.mul(effRate);
+    const netProceeds = event.commissionEur ? proceedsEur.minus(event.commissionEur) : proceedsEur;
+    // this.disposals.push({
+    //   currency: event.currency,
+    //   disposeDate: event.date,
+    //   acquireDate: event.date,
+    //   quantity: remaining,
+    //   proceedsEur: netProceeds,
+    //   costBasisEur: netProceeds,
+    //   gainLossEur: new Decimal(0),
+    //   trigger: event.trigger,
+    //   holdingPeriodDays: 0,
+    //   lotId: "UNKNOWN",
+    // });
+    this.record("dispose", event, { quantityFcy: remaining, rate: effRate, costBasisEur: netProceeds, proceedsEur: netProceeds, gainLossEur: new Decimal(0), lotId: "UNKNOWN", note: "sin lotes previos → ganancia FX = 0" });
+    logO({ etiqueta: "FXCons", lotId: "UNKOWN", brokerSource: event.brokerSource, trigger: event.trigger.toUpperCase(), quantity: event.quantity.toString() });
+    return "UNKNOWN";
+  }
+
+  const effRate = FxFifoEngine.effectiveRate(event);
+  while (remaining.greaterThan(0) && lots.length > 0) {
+    const lot = lots[0]!;
+    const consumed = Decimal.min(remaining, lot.quantity);
+
+    // Commission reduces proceeds, distributed proportionally across consumed lots
+    let proceedsEur = consumed.mul(effRate);
+    if (event.commissionEur) {
+      const proportion = consumed.div(totalQty);
+      proceedsEur = proceedsEur.minus(event.commissionEur.mul(proportion));
+    }
+    const costBasisEur = consumed.mul(lot.costPerUnit);
+    const holdingDays = daysBetween(lot.acquireDate, event.date);
+
+    // this.disposals.push({
+    //   currency: event.currency,
+    //   disposeDate: event.date,
+    //   acquireDate: lot.acquireDate,
+    //   quantity: consumed,
+    //   proceedsEur,
+    //   costBasisEur,
+    //   gainLossEur: proceedsEur.minus(costBasisEur),
+    //   trigger: event.trigger,
+    //   holdingPeriodDays: holdingDays,
+    //   lotId: lot.id,
+    // });
+
+    const lotIdConsumed = lot.id;
+    console.log(
+      `[${y}STKCons${z}] ${lot.id} |${event.date} | f.Crea ${lot.acquireDate}: ${consumed.toFixed(2)} ${event.currency} costInEur ${costBasisEur.toFixed(2)} EUR and proceeds ${proceedsEur.toFixed(2)} EUR (gain/loss: ${proceedsEur.minus(costBasisEur).toFixed(2)} EUR), quedan en el lote ${lot.quantity.minus(consumed).toFixed(2)} ${event.currency} con costInEur ${lot.costInEur.minus(costBasisEur).toFixed(2)} EUR`);
+
+    lot.quantity = lot.quantity.minus(consumed);
+    lot.costInEur = lot.costInEur.minus(costBasisEur);
+
+    if (lot.quantity.isZero()) {
+      lots.shift();
+    }
+
+    remaining = remaining.minus(consumed);
+    this.record("dispose", event, { quantityFcy: consumed, rate: effRate, costBasisEur, proceedsEur, gainLossEur: proceedsEur.minus(costBasisEur), lotId: lotIdConsumed, lotAcquireDate: lot.acquireDate });
+    logO({ etiqueta: "FXConsDispose", lotId: lot.id, brokerSource: event.brokerSource, trigger: event.trigger.toUpperCase(), quantity: consumed.toString() });
+  }
+
+  if (remaining.greaterThan(0)) {
+    const entry = this.fxMissing.get(event.currency) ?? { count: 0, totalQty: new Decimal(0) };
+    entry.count++;
+    entry.totalQty = entry.totalQty.plus(remaining);
+    this.fxMissing.set(event.currency, entry);
+    let proceedsEur = remaining.mul(effRate);
+    if (event.commissionEur) {
+      const proportion = remaining.div(totalQty);
+      proceedsEur = proceedsEur.minus(event.commissionEur.mul(proportion));
+    }
+    // this.disposals.push({
+    //   currency: event.currency,
+    //   disposeDate: event.date,
+    //   acquireDate: event.date,
+    //   quantity: remaining,
+    //   proceedsEur,
+    //   costBasisEur: proceedsEur,
+    //   gainLossEur: new Decimal(0),
+    //   trigger: event.trigger,
+    //   holdingPeriodDays: 0,
+    //   lotId: "UNKNOWN",
+    // });
+    this.record("dispose", event, { quantityFcy: remaining, rate: effRate, costBasisEur: proceedsEur, proceedsEur, gainLossEur: new Decimal(0), lotId: "UNKNOWN", note: "lotes insuficientes → ganancia FX = 0" });
+  }
+
 }
+
+
+}
+
+
 
 // 1. Definimos la estructura del diccionario de colores
 interface Colores {
@@ -1295,7 +1406,7 @@ export function logOperacion({
 }: LogOperacionParams): void { // ← Tipamos el objeto de entrada
   const { reset, bold } = colores;
 
-  // Solución al segundo error: Tipamos 'valor' como string o number
+  //Tipamos 'valor' como string o number
   const cn = (valor: string | number): string => `${colorNum}${valor}${reset}`;
 
   let msg = `[${colorEtiqueta}${etiqueta}${reset}] `;

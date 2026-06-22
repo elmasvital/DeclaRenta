@@ -104,6 +104,7 @@ export interface Trade {
    * "CASH"` conversion trades; ignored elsewhere and under monodivisa (skipFx).
    */
   realEurAmount?: string;
+  broker?: string;
 }
 
 export interface CashTransaction {

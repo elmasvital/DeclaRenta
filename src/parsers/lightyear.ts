@@ -209,7 +209,16 @@ function parseLightyearCsv(lines: string[]): Statement {
     if (DIVIDEND_TYPES.has(txType)) {
       if (!ticker) continue;
 
-      const grossDec = new Decimal(grossAmount).abs();
+      let grossDec = new Decimal(grossAmount).abs();
+
+      //JMG en las distribuciones de fondos no hay retención por impuestos pero
+      //hay comisión del broker. En este caso, la comisión se resta del importe bruto
+      //pero no se trata como un impuesto porque no lo es.
+      if (txType === "distribution") {
+        const feeDec = new Decimal(fee).abs();
+        grossDec = grossDec.minus(feeDec);
+        console.log(`JMG: Distribución de fondo ${ticker} con comisión de broker ${feeDec.toString()} y bruto ${grossAmount}. Neto para declarar ${grossDec.toString()}`);
+      }
       // Gross dividend
       cashTransactions.push({
         transactionID: `lightyear-${txType}-${reference || `${tradeDate}-${ticker}-${i}`}`,
@@ -366,7 +375,6 @@ function parseLightyearCsv(lines: string[]): Statement {
       multiplier: "1",
       broker: "LY",
     });
-    console.log("1");
   }
 
   return {
