@@ -60,4 +60,4 @@ export type { Locale, TranslationKey } from "./i18n/index.js";
 export type * from "./types/index.js";
 
 //JMG UTILS
-export { logO as logOperacion, colores } from "@/utils/log.js"
+export { logO as logOperacion, colores } from "@/utils/utils.js"

@@ -20,6 +20,7 @@ import { lookupRateInMap } from "../engine/ecb.js";
 import { resolveCryptoTradeValues } from "../engine/crypto-valuation.js";
 import { buildManualRateMap } from "../engine/manual-rates.js";
 import { normalizeDate } from "../engine/dates.js";
+import { printFxDisposals, printFxLotsClosed, printFxRemainingLots } from "../utils/utils.js";
 
 const DATE_RE = /\b(\d{4})-\d{2}-\d{2}\b/;
 
@@ -508,6 +509,13 @@ export function generateTaxReport(
     const stockPurchaseFxEvents = FxFifoEngine.extractStockPurchaseFxEvents(statement.trades, rateMap, trackAutoConvert);
     const stockProceedsFxEvents = FxFifoEngine.extractStockProceedsFxEvents(fifoEngine.getDisposals());
     const allFxDisposals = fxEngine.processEvents([...tradeFxEvents, ...cashFxEvents, ...stockPurchaseFxEvents, ...stockProceedsFxEvents]);
+
+    const remainingFxLots = fxEngine.getRemainingLots();
+
+    printFxDisposals(allFxDisposals);
+    printFxLotsClosed(fxEngine.getRemainingClosedLots());
+    printFxRemainingLots(remainingFxLots);
+
     fxDisposals = allFxDisposals.filter((d) => d.disposeDate.startsWith(yearStr));
     if (titulares > 1) fxDisposals = fxDisposals.map((d) => splitFxDisposal(d, titulares));
 

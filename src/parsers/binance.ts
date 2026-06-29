@@ -16,7 +16,7 @@ import type { CashTransaction, Trade } from "../types/ibkr.js";
 import type { ManualRateQuote, TaxMessage } from "../types/tax.js";
 import { isFiat, isEcbResolvable } from "../engine/ecb.js";
 import { parseCsvLine, stripBom, toFiniteDecimal } from "./csv-utils.js";
-import { logO } from "@/utils/log.js";
+import { logO } from "@/utils/utils.js";
 
 // ---------------------------------------------------------------------------
 // Header detection

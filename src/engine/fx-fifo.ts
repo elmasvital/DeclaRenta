@@ -18,18 +18,7 @@ import type { Trade, CashTransaction } from "../types/ibkr.js";
 import type { EcbRateMap } from "../types/ecb.js";
 import { getEcbRate, isEcbResolvable, lookupRateInMap } from "./ecb.js";
 import { daysBetween, normalizeDate } from "./dates.js";
-import { logO } from "@/utils/log.js";
-
-
-// Colores ANSI para la terminal
-const z = "\x1b[0m"; //reset
-const r = "\x1b[31m"; //red
-const c = "\x1b[36m"; //cyan
-const g = "\x1b[32m"; //green
-const y = "\x1b[33m"; //yellow
-const m = "\x1b[35m"; //magenta
-const b = "\x1b[1m"; //bold
-const COPY_OPTION: boolean = false; // Si es true, se imprime la línea de COPY para copiar y pegar en el Excel
+import { logO } from "@/utils/utils.js";
 
 
 /**
@@ -79,7 +68,6 @@ export interface FxEvent {
   /** Real EUR value applied to this conversion (spread-laden), BEFORE commission. When present, the effective rate realEurAmount/|quantity| is used instead of ecbRate (issue #253). */
   realEurAmount?: Decimal;
   brokerSource?: string;
-  costInEur?: Decimal;
   symbol?: string | "";
 
   /**
@@ -113,6 +101,7 @@ export interface FxEvent {
 
 export class FxFifoEngine {
   private lots: Map<string, FxLot[]> = new Map();
+  private lotsClosed: Map<string, FxLot[]> = new Map();
   private disposals: FxDisposal[] = [];
   private nextLotId = 1;
   warnings: string[] = [];
@@ -199,6 +188,7 @@ export class FxFifoEngine {
       ...(fields.lotId !== undefined ? { lotId: fields.lotId } : {}),
       ...(fields.lotAcquireDate !== undefined ? { lotAcquireDate: fields.lotAcquireDate } : {}),
       ...(fields.note !== undefined ? { note: fields.note } : {}),
+      brokerSource: event.brokerSource,
     });
   }
 
@@ -336,35 +326,36 @@ export class FxFifoEngine {
 
     for (const event of sorted) {
       if (event.currency === "EUR") continue;
-      const costInEurTXT = event.costInEur ? `CostEurBroker: ${g}${event.costInEur} EUR` : "";
-      const triggerTXT = event.trigger.toUpperCase();
-      const dateTXT = new Date(event.date).toLocaleDateString("es-ES");
-      let ratio: Decimal = event.trigger === "conversion"
-        ? event.quantity.div(event.costInEur ? event.costInEur : new Decimal(1))
+      //const costInEurTXT = event.costInEur ? `CostEurBroker: ${g}${event.costInEur} EUR` : "";
+      //const triggerTXT = event.trigger.toUpperCase();
+      //const dateTXT = new Date(event.date).toLocaleDateString("es-ES");
+      let ratio: Decimal = event.trigger.toLowerCase() === "conversion"
+        ? event.quantity.div(event.realEurAmount ? event.realEurAmount : new Decimal(1))
         : (new Decimal(1).div(event.ecbRate));
 
       //      const eventORratio = `${event.costInEur ? event.costInEur : ratio}`;
-      const copyTXT = COPY_OPTION ? ` | COPY: ${dateTXT}\t\t\t${event.brokerSource}\t${event.quantity}\t${ratio}` : "";
-
-
+      //const copyTXT = COPY_OPTION ? ` | COPY: ${dateTXT}\t\t\t${event.brokerSource}\t${event.quantity}\t${ratio}` : "";
+      //COMPRA DE ACCION
       if (event.kind === "stock_buy") {
         //COMPRA ACCION
         //this.parkPrincipal(event);
         //console.log(`${g}[STKBUY]${z} ${event.brokerSource ? `${event.brokerSource} | ` : ''}${b}${triggerTXT.padEnd(5)}${z} | ${event.symbol ? `${event.symbol} | ` : ''}${g}${dateTXT}${z} | Cant: ${g}${event.costFcy} USD${z} | Ratio: ${g}${ratio}${z}${copyTXT}`);
-        logO({etiqueta: "STKBUY", brokerSource: event.brokerSource, trigger: event.trigger, symbol: event.symbol, costFcy: event.costFcy?.toString(), ratio, date: event.date });
-      } else if (event.kind === "stock_sell") {
+        logO({ etiqueta: "STKBUY", brokerSource: event.brokerSource, symbol: event.symbol, costFcy: event.costFcy, FAdq: event.date });
+      }
+      //VENTA DE ACCION
+      else if (event.kind === "stock_sell") {
         //VENTA ACCION
         this.unparkAndReadd(event);
-        //console.log(`${g}[STKSELL]${z} ${event.brokerSource ? `${event.brokerSource} | ` : ''}${b}${triggerTXT.padEnd(5)}${z} | ${event.symbol ? `${event.symbol} | ` : ''}${g}${dateTXT}${z} | Cant: ${g}${event.proceedsFcy} USD${z} | Ratio: ${g}${ratio}${z}${copyTXT}`);
-        logO({etiqueta: "STKSELL", brokerSource: event.brokerSource, trigger: event.trigger, symbol: event.symbol, costFcy: event.proceedsFcy?.toString(), ratio, date: event.date });
-      } else if (event.quantity.greaterThan(0)) {
-        //ADQUISICION DE MONEDA
+        logO({ etiqueta: "STKSELL", brokerSource: event.brokerSource, symbol: event.symbol, quantity: event.quantity, costFcy: event.costFcy, FTrans: event.date });
+      }
+      //CONVERSION, INTERÉS, DIVIDENDO
+      else if (event.quantity.greaterThan(0)) {
+        //PLUSVALÍA. ADQUISICIÓN DE MONEDA
         const lotId = this.addLot(event);
-
-        logO({ etiqueta: "FXAdd", lotId: lotId, brokerSource: event.brokerSource, trigger: event.trigger.toUpperCase(), quantity: event.quantity.toString() });
-
+        if (event.trigger.toLowerCase() === "conversion") true;
+        logO({ etiqueta: "FXAdd", lotId: lotId, brokerSource: event.brokerSource, trigger: event.trigger, FAdq: event.date, quantity: event.quantity, realEurAmount: event.realEurAmount });
       } else if (event.quantity.lessThan(0)) {
-        //VENTA
+        //MINUSVALÍA. DISPOSICIÓN DE MONEDA
         //logO Están dentro de consumeLots
         this.consumeLots(event);
       }
@@ -468,10 +459,10 @@ export class FxFifoEngine {
       if (acquiring) {
         //aqui no es interseante el log, se estan catalogando los lotes que se van a adquirir, pero no se está haciendo nada con ellos.
         //console.log(`[FX] Acquiring ${amount} ${trade.currency} on ${date} at rate ${ecbRate.toFixed(5)} EUR/${trade.currency}`);
-        events.push({ date, currency: trade.currency, quantity: amount, ecbRate, trigger: "conversion", commissionEur, realEurAmount, costInEur: new Decimal(trade.cost), brokerSource: trade.brokerSource });
+        events.push({ date, currency: trade.currency, quantity: amount, ecbRate, trigger: "conversion", commissionEur, realEurAmount, brokerSource: trade.brokerSource });
       } else {
         //console.log(`[FX] Disposing ${amount} ${trade.currency} on ${date} at rate ${ecbRate.toFixed(5)} EUR/${trade.currency}`);
-        events.push({ date, currency: trade.currency, quantity: amount.negated(), ecbRate, trigger: "conversion", commissionEur, realEurAmount, costInEur: new Decimal(trade.cost), brokerSource: trade.brokerSource });
+        events.push({ date, currency: trade.currency, quantity: amount.negated(), ecbRate, trigger: "conversion", commissionEur, realEurAmount, brokerSource: trade.brokerSource });
       }
     }
 
@@ -586,7 +577,7 @@ export class FxFifoEngine {
         // `greaterThan(0)`, not `isPositive()` — decimal.js treats +0 as positive,
         // and a zero-quantity event would make addLot compute 0/0 = NaN.
         if (net.greaterThan(0)) {
-          events.push({ date, currency: tx.currency, quantity: net, ecbRate, trigger: "dividend", costInEur: new Decimal(tx.costInEur || 0), brokerSource: tx.brokerSource, symbol: tx.symbol });
+          events.push({ date, currency: tx.currency, quantity: net, ecbRate, trigger: "dividend", brokerSource: tx.brokerSource, symbol: tx.symbol });
         }
       } else if (tx.type === "Withholding Tax" || (tx.type === "Other Fees" && (tx.description.includes("CASH DIVIDEND")) && (tx.description.includes("FEE")))) {
         //} else if (tx.type === "Withholding Tax") {
@@ -594,22 +585,22 @@ export class FxFifoEngine {
         // disposal. A positive-amount WHT (a refund) IS currency received → acquire.
         // Defensive: not observed in current broker exports, but symmetric and cheap.
         if (amount.greaterThan(0)) {
-          events.push({ date, currency: tx.currency, quantity: amount, ecbRate, trigger: "dividend", brokerSource: tx.brokerSource, costInEur: new Decimal(tx.costInEur || 0), symbol: tx.symbol });
+          events.push({ date, currency: tx.currency, quantity: amount, ecbRate, trigger: "dividend", brokerSource: tx.brokerSource, symbol: tx.symbol });
         }
       } else if (tx.type === "Broker Interest Received" || tx.type === "Bond Interest Received") {
         // Interest can also carry withholding (e.g. "WITHHOLDING ON CREDIT INT");
         // net it the same way — a withholding is a pago a cuenta whatever the income.
         const net = consumeWithholding(tx.currency, date, amount.abs());
         if (net.greaterThan(0)) {
-          events.push({ date, currency: tx.currency, quantity: net, ecbRate, trigger: "interest", brokerSource: tx.brokerSource, costInEur: new Decimal(tx.costInEur || 0) });
+          events.push({ date, currency: tx.currency, quantity: net, ecbRate, trigger: "interest", brokerSource: tx.brokerSource });
         }
       } else if (tx.type === "Broker Interest Paid" || tx.type === "Bond Interest Paid") {
-        events.push({ date, currency: tx.currency, quantity: amount.abs().negated(), ecbRate, trigger: "interest", brokerSource: tx.brokerSource, costInEur: new Decimal(tx.costInEur || 0), symbol: tx.symbol });
+        events.push({ date, currency: tx.currency, quantity: amount.abs().negated(), ecbRate, trigger: "interest", brokerSource: tx.brokerSource, symbol: tx.symbol });
       } else if (tx.type === "Other Fees" || tx.type === "Commission Adjustments") {
         if (amount.lessThan(0)) {
-          events.push({ date, currency: tx.currency, quantity: amount.abs().negated(), ecbRate, trigger: "commission", brokerSource: tx.brokerSource, costInEur: new Decimal(tx.costInEur || 0), symbol: tx.symbol });
+          events.push({ date, currency: tx.currency, quantity: amount.abs().negated(), ecbRate, trigger: "commission", brokerSource: tx.brokerSource, symbol: tx.symbol });
         } else {
-          events.push({ date, currency: tx.currency, quantity: amount.abs(), ecbRate, trigger: "commission", brokerSource: tx.brokerSource, costInEur: new Decimal(tx.costInEur || 0) });
+          events.push({ date, currency: tx.currency, quantity: amount.abs(), ecbRate, trigger: "commission", brokerSource: tx.brokerSource });
         }
       }
     }
@@ -858,6 +849,7 @@ export class FxFifoEngine {
       quantity: event.quantity,
       costPerUnit,
       costInEur: totalCost,
+      trigger: event.trigger,
     };
 
     if (!this.lots.has(event.currency)) {
@@ -895,7 +887,7 @@ export class FxFifoEngine {
         lotId: "UNKNOWN",
       });
       this.record("dispose", event, { quantityFcy: remaining, rate: effRate, costBasisEur: netProceeds, proceedsEur: netProceeds, gainLossEur: new Decimal(0), lotId: "UNKNOWN", note: "sin lotes previos → ganancia FX = 0" });
-      logO({ etiqueta: "FXCons", lotId: "UNKOWN", brokerSource: event.brokerSource, trigger: event.trigger.toUpperCase(), quantity: event.quantity.toString() });
+      logO({ etiqueta: "FXCons", lotId: "UNKOWN", brokerSource: event.brokerSource, trigger: event.trigger, quantity: event.quantity });
       return "UNKNOWN";
     }
 
@@ -927,21 +919,25 @@ export class FxFifoEngine {
       });
 
       const lotIdConsumed = lot.id;
-      console.log(
-        `[${y}STKCons${z}] ${lot.id} |${event.date} | f.Crea ${lot.acquireDate}: ${consumed.toFixed(2)} ${event.currency} costInEur ${costBasisEur.toFixed(2)} EUR and proceeds ${proceedsEur.toFixed(2)} EUR (gain/loss: ${proceedsEur.minus(costBasisEur).toFixed(2)} EUR), quedan en el lote ${lot.quantity.minus(consumed).toFixed(2)} ${event.currency} con costInEur ${lot.costInEur.minus(costBasisEur).toFixed(2)} EUR`);
-
+      logO({ etiqueta: "FXCons", lotId: lot.id, brokerSource: event.brokerSource, trigger: event.trigger, quantity: consumed });
       lot.quantity = lot.quantity.minus(consumed);
       lot.costInEur = lot.costInEur.minus(costBasisEur);
-
+      //Si el lote se ha consumido completamente, lo eliminamos de la lista de lotes
       if (lot.quantity.isZero()) {
+        logO({ etiqueta: "FXLotCLOSED", lotId: lot.id, FAdq: lot.acquireDate, FTrans: event.date, trigger: event.trigger, quantity: lot.quantity });
+        if (!this.lotsClosed.has(event.currency)) {
+          this.lotsClosed.set(event.currency, []);
+        }
+        this.lotsClosed.get(event.currency)!.push(lot);
         lots.shift();
       }
 
       remaining = remaining.minus(consumed);
       this.record("dispose", event, { quantityFcy: consumed, rate: effRate, costBasisEur, proceedsEur, gainLossEur: proceedsEur.minus(costBasisEur), lotId: lotIdConsumed, lotAcquireDate: lot.acquireDate });
-      logO({ etiqueta: "FXConsDispose", lotId: lot.id, brokerSource: event.brokerSource, trigger: event.trigger.toUpperCase(), quantity: consumed.toString() });
+      logO({ etiqueta: "FXConsDispose", lotId: lot.id, brokerSource: event.brokerSource, trigger: event.trigger, quantity: consumed });
     }
-
+    // Si se han consumido todos los lotes y queda cantidad por conumir
+    // avisamos del error.
     if (remaining.greaterThan(0)) {
       const entry = this.fxMissing.get(event.currency) ?? { count: 0, totalQty: new Decimal(0) };
       entry.count++;
@@ -1021,7 +1017,8 @@ export class FxFifoEngine {
       }
     }
     lots.splice(idx, 0, lot);
-    console.log(`[${y}STKReAdd${z}] ${lot.id} |${date} | f.Crea ${date}: re-added ${g}${q.toFixed(2)}${z} ${currency} at rate ${g}${rate.toFixed(6)}${z} EUR/${currency}`);
+    //console.log(`[${y}STKReAdd${z}] ${lot.id} |${date} | f.Crea ${date}: re-added ${g}${q.toFixed(2)}${z} ${currency} at rate ${g}${rate.toFixed(6)}${z} EUR/${currency}`);
+    logO({ etiqueta: "FXReAdd", lotId: lot.id, brokerSource: "STOCK_SELL", trigger: "STOCK_SELL", quantity: q });
   }
 
   /**
@@ -1072,7 +1069,8 @@ export class FxFifoEngine {
         if (lot.quantity.lessThan(EPS)) lots.shift();
         remaining = remaining.minus(consumed);
         this.record("park", event, { quantityFcy: consumed, rate: lot.costPerUnit, lotAcquireDate: lot.acquireDate });
-        console.log(`[${y}STKPark${z}] ${lot.id} |${event.date} | f.Crea ${lot.acquireDate}: parked ${consumed.toFixed(2)} ${event.currency} at rate ${lot.costPerUnit.toFixed(6)} EUR/${event.currency}`);
+        //console.log(`[${y}STKPark${z}] ${lot.id} |${event.date} | f.Crea ${lot.acquireDate}: parked ${consumed.toFixed(2)} ${event.currency} at rate ${lot.costPerUnit.toFixed(6)} EUR/${event.currency}`);
+        logO({ etiqueta: "FXPark", lotId: lot.id, brokerSource: event.brokerSource, trigger: event.trigger, quantity: consumed });
       }
     }
 
@@ -1195,12 +1193,12 @@ export class FxFifoEngine {
       // this.pushPoolLot(event.currency, event.date, profit, saleRate);
       this.addLot(event);
       this.record("profit", event, { quantityFcy: profit, rate: saleRate });
-      logO({ etiqueta: "FXProfit", lotId: "PROFIT", brokerSource: event.brokerSource, trigger: event.trigger.toUpperCase(), quantity: profit.toString() });
+      logO({ etiqueta: "FXProfit", lotId: "PROFIT", brokerSource: event.brokerSource, trigger: event.trigger.toUpperCase(), quantity: profit });
       //venta en minuvalía
     } else if (profit.lessThan(EPS)) {
       this.lossFxFifo(event);
       this.record("discard", event, { quantityFcy: profit.abs(), rate: saleRate });
-      logO({ etiqueta: "FXLoss", lotId: "LOSS", brokerSource: event.brokerSource, trigger: event.trigger.toUpperCase(), quantity: profit.abs().toString() });
+      logO({ etiqueta: "FXLoss", lotId: "LOSS", brokerSource: event.brokerSource, trigger: event.trigger.toUpperCase(), quantity: profit.abs() });
     }
   }
 
@@ -1210,6 +1208,9 @@ export class FxFifoEngine {
 
   getRemainingLots(): Map<string, FxLot[]> {
     return this.lots;
+  }
+  getRemainingClosedLots(): Map<string, FxLot[]> {
+    return this.lotsClosed;
   }
 
   /**
@@ -1222,20 +1223,6 @@ export class FxFifoEngine {
   getParked(): Map<string, { q: Decimal; rate: Decimal | null; acquireDate: string | null }[]> {
     return this.parked;
   }
-  // Solo para testing, imprime los lotes que quedan al final del proceso para verificar si hay alguno que no se haya consumido y podamos investigar por qué no se ha consumido.
-  private printRemainingLots(): void {
-    console.log("=== FX FIFO remaining lots ===");
-    for (const [currency, lots] of this.lots) {
-      const totalQty = lots.reduce((acc, lot) => acc.plus(lot.quantity), new Decimal(0));
-      const totalCost = lots.reduce((acc, lot) => acc.plus(lot.costInEur), new Decimal(0));
-      console.log(`${currency}: ${totalQty.toFixed(2)} units, cost=${totalCost.toFixed(2)} EUR`);
-      for (const lot of lots) {
-        console.log(
-          `  ${lot.id} | ${lot.broker} | ${lot.acquireDate} | qty=${lot.quantity.toFixed(2)} | costPerUnit=${lot.costPerUnit.toFixed(6)} | cost=${lot.costInEur.toFixed(2)} EUR`,
-        );
-      }
-    }
-  }
 
   //JMG. IMPLEMENTACIÓN DE UNA FUNCIÓN MODIFICADA DESDE CONSUMELOT.
   // ESTA FUNCIÓN SE SEPARA DE LA RAMA MAIN Y LA OPINIÓN DE SU AUTOR SOBRE
@@ -1244,181 +1231,104 @@ export class FxFifoEngine {
   // Se reduce la cantidad de la minusvalía pero no se registra una venta de divisa.
 
   private lossFxFifo(event: FxEvent): string | undefined {
-  let  remaining = event.quantity.abs();
-  const totalQty = remaining;
-  const lots = this.lots.get(event.currency);
+    let remaining = event.quantity.abs();
+    const totalQty = remaining;
+    const lots = this.lots.get(event.currency);
 
-  if (!lots || lots.length === 0) {
-    const entry = this.fxMissing.get(event.currency) ?? { count: 0, totalQty: new Decimal(0) };
-    entry.count++;
-    entry.totalQty = entry.totalQty.plus(remaining);
-    this.fxMissing.set(event.currency, entry);
+    if (!lots || lots.length === 0) {
+      const entry = this.fxMissing.get(event.currency) ?? { count: 0, totalQty: new Decimal(0) };
+      entry.count++;
+      entry.totalQty = entry.totalQty.plus(remaining);
+      this.fxMissing.set(event.currency, entry);
+      const effRate = FxFifoEngine.effectiveRate(event);
+      const proceedsEur = remaining.mul(effRate);
+      const netProceeds = event.commissionEur ? proceedsEur.minus(event.commissionEur) : proceedsEur;
+      //JMG EVITAMOS QUE SE REGISTRE UNA VENTA DE DIVISA, NO HAY GANANCIA NI PÉRDIDA DE DIVISA.
+      // this.disposals.push({
+      //   currency: event.currency,
+      //   disposeDate: event.date,
+      //   acquireDate: event.date,
+      //   quantity: remaining,
+      //   proceedsEur: netProceeds,
+      //   costBasisEur: netProceeds,
+      //   gainLossEur: new Decimal(0),
+      //   trigger: event.trigger,
+      //   holdingPeriodDays: 0,
+      //   lotId: "UNKNOWN",
+      // });
+      this.record("dispose", event, { quantityFcy: remaining, rate: effRate, costBasisEur: netProceeds, proceedsEur: netProceeds, gainLossEur: new Decimal(0), lotId: "UNKNOWN", note: "sin lotes previos → ganancia FX = 0" });
+      logO({ etiqueta: "FXCons", lotId: "UNKOWN", brokerSource: event.brokerSource, trigger: event.trigger, quantity: event.quantity });
+      return "UNKNOWN";
+    }
+
     const effRate = FxFifoEngine.effectiveRate(event);
-    const proceedsEur = remaining.mul(effRate);
-    const netProceeds = event.commissionEur ? proceedsEur.minus(event.commissionEur) : proceedsEur;
-    // this.disposals.push({
-    //   currency: event.currency,
-    //   disposeDate: event.date,
-    //   acquireDate: event.date,
-    //   quantity: remaining,
-    //   proceedsEur: netProceeds,
-    //   costBasisEur: netProceeds,
-    //   gainLossEur: new Decimal(0),
-    //   trigger: event.trigger,
-    //   holdingPeriodDays: 0,
-    //   lotId: "UNKNOWN",
-    // });
-    this.record("dispose", event, { quantityFcy: remaining, rate: effRate, costBasisEur: netProceeds, proceedsEur: netProceeds, gainLossEur: new Decimal(0), lotId: "UNKNOWN", note: "sin lotes previos → ganancia FX = 0" });
-    logO({ etiqueta: "FXCons", lotId: "UNKOWN", brokerSource: event.brokerSource, trigger: event.trigger.toUpperCase(), quantity: event.quantity.toString() });
-    return "UNKNOWN";
-  }
+    while (remaining.greaterThan(0) && lots.length > 0) {
+      const lot = lots[0]!;
+      const consumed = Decimal.min(remaining, lot.quantity);
 
-  const effRate = FxFifoEngine.effectiveRate(event);
-  while (remaining.greaterThan(0) && lots.length > 0) {
-    const lot = lots[0]!;
-    const consumed = Decimal.min(remaining, lot.quantity);
+      // Commission reduces proceeds, distributed proportionally across consumed lots
+      let proceedsEur = consumed.mul(effRate);
+      if (event.commissionEur) {
+        const proportion = consumed.div(totalQty);
+        proceedsEur = proceedsEur.minus(event.commissionEur.mul(proportion));
+      }
+      const costBasisEur = consumed.mul(lot.costPerUnit);
+      const holdingDays = daysBetween(lot.acquireDate, event.date);
+      //JMG. EVITAMOS QUE SE REGISTRE UNA VENTA DE DIVISA, NO HAY GANANCIA NI PÉRDIDA DE DIVISA.
+      // this.disposals.push({
+      //   currency: event.currency,
+      //   disposeDate: event.date,
+      //   acquireDate: lot.acquireDate,
+      //   quantity: consumed,
+      //   proceedsEur,
+      //   costBasisEur,
+      //   gainLossEur: proceedsEur.minus(costBasisEur),
+      //   trigger: event.trigger,
+      //   holdingPeriodDays: holdingDays,
+      //   lotId: lot.id,
+      // });
 
-    // Commission reduces proceeds, distributed proportionally across consumed lots
-    let proceedsEur = consumed.mul(effRate);
-    if (event.commissionEur) {
-      const proportion = consumed.div(totalQty);
-      proceedsEur = proceedsEur.minus(event.commissionEur.mul(proportion));
-    }
-    const costBasisEur = consumed.mul(lot.costPerUnit);
-    const holdingDays = daysBetween(lot.acquireDate, event.date);
+      const lotIdConsumed = lot.id;
+      //console.log(`[${y}STKCons${z}] ${lot.id} |${event.date} | f.Crea ${lot.acquireDate}: ${consumed.toFixed(2)} ${event.currency} costInEur ${costBasisEur.toFixed(2)} EUR and proceeds ${proceedsEur.toFixed(2)} EUR (gain/loss: ${proceedsEur.minus(costBasisEur).toFixed(2)} EUR), quedan en el lote ${lot.quantity.minus(consumed).toFixed(2)} ${event.currency} con costInEur ${lot.costInEur.minus(costBasisEur).toFixed(2)} EUR`);
+      logO({ etiqueta: "FXCons", lotId: lot.id, FTrans: event.date, FAdq: lot.acquireDate, brokerSource: event.brokerSource, trigger: event.trigger, quantity: consumed });
+      lot.quantity = lot.quantity.minus(consumed);
+      lot.costInEur = lot.costInEur.minus(costBasisEur);
 
-    // this.disposals.push({
-    //   currency: event.currency,
-    //   disposeDate: event.date,
-    //   acquireDate: lot.acquireDate,
-    //   quantity: consumed,
-    //   proceedsEur,
-    //   costBasisEur,
-    //   gainLossEur: proceedsEur.minus(costBasisEur),
-    //   trigger: event.trigger,
-    //   holdingPeriodDays: holdingDays,
-    //   lotId: lot.id,
-    // });
+      if (lot.quantity.isZero()) {
+        lots.shift();
+      }
 
-    const lotIdConsumed = lot.id;
-    console.log(
-      `[${y}STKCons${z}] ${lot.id} |${event.date} | f.Crea ${lot.acquireDate}: ${consumed.toFixed(2)} ${event.currency} costInEur ${costBasisEur.toFixed(2)} EUR and proceeds ${proceedsEur.toFixed(2)} EUR (gain/loss: ${proceedsEur.minus(costBasisEur).toFixed(2)} EUR), quedan en el lote ${lot.quantity.minus(consumed).toFixed(2)} ${event.currency} con costInEur ${lot.costInEur.minus(costBasisEur).toFixed(2)} EUR`);
-
-    lot.quantity = lot.quantity.minus(consumed);
-    lot.costInEur = lot.costInEur.minus(costBasisEur);
-
-    if (lot.quantity.isZero()) {
-      lots.shift();
+      remaining = remaining.minus(consumed);
+      this.record("dispose", event, { quantityFcy: consumed, rate: effRate, costBasisEur, proceedsEur, gainLossEur: proceedsEur.minus(costBasisEur), lotId: lotIdConsumed, lotAcquireDate: lot.acquireDate });
+      logO({ etiqueta: "FXConsDispose", lotId: lot.id, brokerSource: event.brokerSource, trigger: event.trigger, quantity: consumed });
     }
 
-    remaining = remaining.minus(consumed);
-    this.record("dispose", event, { quantityFcy: consumed, rate: effRate, costBasisEur, proceedsEur, gainLossEur: proceedsEur.minus(costBasisEur), lotId: lotIdConsumed, lotAcquireDate: lot.acquireDate });
-    logO({ etiqueta: "FXConsDispose", lotId: lot.id, brokerSource: event.brokerSource, trigger: event.trigger.toUpperCase(), quantity: consumed.toString() });
-  }
-
-  if (remaining.greaterThan(0)) {
-    const entry = this.fxMissing.get(event.currency) ?? { count: 0, totalQty: new Decimal(0) };
-    entry.count++;
-    entry.totalQty = entry.totalQty.plus(remaining);
-    this.fxMissing.set(event.currency, entry);
-    let proceedsEur = remaining.mul(effRate);
-    if (event.commissionEur) {
-      const proportion = remaining.div(totalQty);
-      proceedsEur = proceedsEur.minus(event.commissionEur.mul(proportion));
+    if (remaining.greaterThan(0)) {
+      const entry = this.fxMissing.get(event.currency) ?? { count: 0, totalQty: new Decimal(0) };
+      entry.count++;
+      entry.totalQty = entry.totalQty.plus(remaining);
+      this.fxMissing.set(event.currency, entry);
+      let proceedsEur = remaining.mul(effRate);
+      if (event.commissionEur) {
+        const proportion = remaining.div(totalQty);
+        proceedsEur = proceedsEur.minus(event.commissionEur.mul(proportion));
+      }
+      // this.disposals.push({
+      //   currency: event.currency,
+      //   disposeDate: event.date,
+      //   acquireDate: event.date,
+      //   quantity: remaining,
+      //   proceedsEur,
+      //   costBasisEur: proceedsEur,
+      //   gainLossEur: new Decimal(0),
+      //   trigger: event.trigger,
+      //   holdingPeriodDays: 0,
+      //   lotId: "UNKNOWN",
+      // });
+      //this.record("dispose", event, { quantityFcy: remaining, rate: effRate, costBasisEur: proceedsEur, proceedsEur, gainLossEur: new Decimal(0), lotId: "UNKNOWN", note: "lotes insuficientes → ganancia FX = 0" });
     }
-    // this.disposals.push({
-    //   currency: event.currency,
-    //   disposeDate: event.date,
-    //   acquireDate: event.date,
-    //   quantity: remaining,
-    //   proceedsEur,
-    //   costBasisEur: proceedsEur,
-    //   gainLossEur: new Decimal(0),
-    //   trigger: event.trigger,
-    //   holdingPeriodDays: 0,
-    //   lotId: "UNKNOWN",
-    // });
-    this.record("dispose", event, { quantityFcy: remaining, rate: effRate, costBasisEur: proceedsEur, proceedsEur, gainLossEur: new Decimal(0), lotId: "UNKNOWN", note: "lotes insuficientes → ganancia FX = 0" });
+
   }
 
-}
 
-
-}
-
-
-
-// 1. Definimos la estructura del diccionario de colores
-interface Colores {
-  reset: string;
-  bold: string;
-  green: string;
-  yellow: string;
-  cyan: string;
-  white: string;
-  red: string;
-  magenta: string;
-}
-
-const colores: Colores = {
-  reset: "\x1b[0m",
-  bold: "\x1b[1m",
-  green: "\x1b[32m",
-  yellow: "\x1b[33m",
-  cyan: "\x1b[36m",
-  white: "\x1b[37m",
-  red: "\x1b[31m",
-  magenta: "\x1b[35m"
-};
-
-// 2. Definimos una interfaz para los parámetros de la función
-interface LogOperacionParams {
-  etiqueta: string;
-  colorEtiqueta?: string;
-  lotId?: string;
-  brokerSource?: string;
-  triggerTXT?: string;
-  dateTXT?: string;
-  quantity?: string | number;
-  moneda?: string;
-  costInEur?: number | null;
-  ratio?: number | null;
-  copyTXT?: string;
-  colorNum?: string;
-}
-
-/**
- * Rutina de logueo formateado para transacciones
- */
-export function logOperacion({
-  etiqueta,
-  colorEtiqueta = colores.green,
-  lotId = "",
-  brokerSource = "",
-  triggerTXT = "",
-  dateTXT = "",
-  quantity = "",
-  moneda = "USD",
-  costInEur = null,
-  ratio = null,
-  copyTXT = "",
-  colorNum = colores.green
-}: LogOperacionParams): void { // ← Tipamos el objeto de entrada
-  const { reset, bold } = colores;
-
-  //Tipamos 'valor' como string o number
-  const cn = (valor: string | number): string => `${colorNum}${valor}${reset}`;
-
-  let msg = `[${colorEtiqueta}${etiqueta}${reset}] `;
-
-  if (lotId) msg += `${lotId} | `;
-  if (brokerSource) msg += `${brokerSource} | `;
-  if (triggerTXT) msg += `${bold}${triggerTXT.padEnd(14)}${reset} | `;
-  if (dateTXT) msg += `${cn(dateTXT)} | `;
-  if (quantity !== "") msg += `Cant: ${cn(quantity)} ${moneda} | `;
-  if (costInEur !== null) msg += `CostEurBroker: ${cn(costInEur)} EUR | `;
-  if (ratio !== null) msg += `Ratio: ${cn(ratio)} `;
-  if (copyTXT) msg += copyTXT;
-
-  console.log(msg.trim());
 }

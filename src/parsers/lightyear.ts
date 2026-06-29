@@ -330,7 +330,7 @@ function parseLightyearCsv(lines: string[]): Statement {
         ...(realEurAmount ? { realEurAmount } : {}),
         taxes: "0",
         multiplier: "1",
-        broker: "LY",
+        brokerSource: "LY",
       });
       continue;
     }
@@ -373,7 +373,7 @@ function parseLightyearCsv(lines: string[]): Statement {
       commission: isBuy ? (feeDec.isZero() ? "0" : feeDec.toString()) : feeDec.neg().toString(),
       taxes: "0",
       multiplier: "1",
-      broker: "LY",
+      brokerSource: "LY",
     });
   }
 

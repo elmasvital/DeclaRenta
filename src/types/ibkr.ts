@@ -104,7 +104,6 @@ export interface Trade {
    * "CASH"` conversion trades; ignored elsewhere and under monodivisa (skipFx).
    */
   realEurAmount?: string;
-  broker?: string;
 }
 
 export interface CashTransaction {
@@ -175,7 +174,7 @@ export interface CorporateAction {
   amount: string;
   type: string;
   actionDescription: string;
-  broker?: string;
+  brokerSource?: string;
 }
 
 export interface OpenPosition {
@@ -192,7 +191,7 @@ export interface OpenPosition {
   positionValue: string;
   fifoPnlUnrealized: string;
   fxRateToBase: string;
-  broker?: string;
+  brokerSource?: string;
 }
 
 export interface SecurityInfo {
@@ -204,7 +203,7 @@ export interface SecurityInfo {
   assetCategory: AssetCategory;
   multiplier: string;
   subCategory: string;
-  broker?: string;
+  brokerSource?: string;
 }
 
 /** Cash balance at a foreign broker (for Modelo 720, category C — Cuentas) */
@@ -222,7 +221,7 @@ export interface CashBalance {
   /** Country code of the foreign account/institution when known. */
   countryCode?: string;
   /** Broker name when known. */
-  broker?: string;
+  brokerSource?: string;
 }
 
 export type AssetCategory = "STK" | "OPT" | "FUT" | "FOP" | "FSFOP" | "CASH" | "BOND" | "FUND" | "WAR" | "CRYPTO" | "CFD";
@@ -252,5 +251,5 @@ export interface OptionExercise {
   /** Market price of underlying at exercise (from paired delivery row, DGT V0137-23) */
   marketPrice?: string;
   /** Broker name when known. */
-  broker?: string;
+  brokerSource?: string;
 }

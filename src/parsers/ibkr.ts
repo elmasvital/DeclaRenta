@@ -230,7 +230,7 @@ function mapTrade(raw: Record<string, string>): Trade {
     underlyingSymbol: raw.underlyingSymbol || undefined,
     underlyingIsin: raw.underlyingIsin || undefined,
     ibOrderID: raw.ibOrderID || undefined,
-    broker: "IBKR",
+    brokerSource: "IBKR",
   };
 }
 
@@ -454,7 +454,7 @@ function mapCorporateAction(raw: Record<string, string>): CorporateAction {
     amount: raw.amount ?? "0",
     type: raw.type ?? "",
     actionDescription: raw.actionDescription ?? "",
-    broker: "IBKR",
+    brokerSource: "IBKR",
   };
 }
 
@@ -473,7 +473,7 @@ function mapOpenPosition(raw: Record<string, string>): OpenPosition {
     positionValue: raw.positionValue ?? "0",
     fifoPnlUnrealized: raw.fifoPnlUnrealized ?? "0",
     fxRateToBase: raw.fxRateToBase ?? "1",
-    broker: "IBKR",
+    brokerSource: "IBKR",
   };
 }
 
@@ -487,7 +487,7 @@ function mapSecurityInfo(raw: Record<string, string>): SecurityInfo {
     assetCategory: (raw.assetCategory ?? "STK") as SecurityInfo["assetCategory"],
     multiplier: raw.multiplier ?? "1",
     subCategory: raw.subCategory ?? "",
-    broker: "IBKR",
+    brokerSource: "IBKR",
   };
 }
 
@@ -501,7 +501,7 @@ function mapCashBalance(raw: Record<string, string>): CashBalance {
     openedDate: raw.openedDate ?? raw.openDate,
     institutionName: raw.institutionName ?? raw.brokerName,
     countryCode: raw.countryCode ?? raw.country,
-    broker: "IBKR",
+    brokerSource: "IBKR",
   };
 }
 
@@ -511,6 +511,7 @@ interface OptionEaeDelivery {
   underlyingSymbol: string;
   tradePrice: string;
   action: string;
+  brokerSource: string;
 }
 
 function parseOptionEaeRows(rawRows: Record<string, string>[]): OptionExercise[] {
@@ -542,6 +543,7 @@ function parseOptionEaeRows(rawRows: Record<string, string>[]): OptionExercise[]
         underlyingSymbol: raw.underlyingSymbol ?? raw.symbol ?? "",
         underlyingIsin: raw.underlyingIsin ?? "",
         multiplier: raw.multiplier ?? "100",
+        brokerSource: "IBKR",
       });
     } else if (raw.tradePrice?.trim()) {
       deliveryRows.push({
@@ -550,6 +552,7 @@ function parseOptionEaeRows(rawRows: Record<string, string>[]): OptionExercise[]
         underlyingSymbol: raw.underlyingSymbol ?? raw.symbol ?? "",
         tradePrice: raw.tradePrice,
         action: (raw.action ?? raw.type ?? "").toLowerCase(),
+        brokerSource: "IBKR",
       });
     }
   }

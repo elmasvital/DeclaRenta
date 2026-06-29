@@ -395,8 +395,8 @@ export interface FxLot {
   costPerUnit: Decimal;
   /** Total EUR cost for this lot */
   costInEur: Decimal;
-
-  broker?: string;
+  trigger: FxTrigger;
+  brokerSource?: string;
 }
 
 /**
@@ -479,6 +479,7 @@ export interface FxTraceEvent {
   lotAcquireDate?: string;
   /** Optional human note (e.g. "uncovered", "missing-lots floor → gain 0"). */
   note?: string;
+  brokerSource?: string;
 }
 
 /** Result of consuming FX lots via FIFO for a currency disposal */
@@ -494,6 +495,8 @@ export interface FxDisposal {
   holdingPeriodDays: number;
   /** FIFO lot ID consumed (for audit traceability) */
   lotId: string;
+  /** Broker source for audit traceability */
+  brokerSource?: string;
 }
 
 /** Loss carryforward entry (Art. 49 LIRPF) */

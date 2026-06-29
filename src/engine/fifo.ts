@@ -530,6 +530,7 @@ export class FifoEngine {
       holdingPeriodDays: number;
       acquireEcbRate: Decimal;
       optionFields?: Partial<FifoDisposal>;
+      brokerSource?: string;
     }): FifoDisposal => ({
       isin: trade.isin,
       symbol: trade.symbol,
@@ -551,6 +552,7 @@ export class FifoEngine {
       washSaleBlocked: false, // Set later by wash sale detection
       blockedLossEur: new Decimal(0), // Set later by detectWashSales (proportional)
       reintegratedLossEur: new Decimal(0), // Set later by detectWashSales
+      brokerSource: parts.brokerSource ?? trade.brokerSource,
       ...(parts.optionFields ?? {}),
     });
 
@@ -572,6 +574,8 @@ export class FifoEngine {
         gainLossEur: proceedsEur,
         holdingPeriodDays: 0,
         acquireEcbRate: ecbRate,
+        brokerSource: trade.brokerSource,
+
       }));
       return;
     }
@@ -621,6 +625,7 @@ export class FifoEngine {
         gainLossEur,
         holdingPeriodDays: holdingDays,
         acquireEcbRate: lot.ecbRate,
+        brokerSource: trade.brokerSource,
         optionFields: (trade.assetCategory === "OPT" || trade.assetCategory === "FOP" || trade.assetCategory === "FSFOP") ? {
           optionScenario: "close",
           putCall: trade.putCall ?? lot.putCall,
@@ -628,6 +633,7 @@ export class FifoEngine {
           expiry: trade.expiry ?? lot.expiry,
           underlyingSymbol: trade.underlyingSymbol ?? lot.underlyingSymbol,
           underlyingIsin: trade.underlyingIsin ?? lot.underlyingIsin,
+
         } : undefined,
       }));
       //Aqui se están catalogando las ventas, pero no se está haciendo nada con ellas.
@@ -662,6 +668,7 @@ export class FifoEngine {
         gainLossEur: proceedsEur,
         holdingPeriodDays: 0,
         acquireEcbRate: ecbRate,
+        brokerSource: trade.brokerSource,
       }));
     }
   }
