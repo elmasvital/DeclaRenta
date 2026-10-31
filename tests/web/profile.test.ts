@@ -142,6 +142,25 @@ describe("getProfile / saveProfile", () => {
     expect(getProfile().trackAutoConvert).toBe(true);
   });
 
+
+  it("should round-trip fxStockLossDestruction: true via saveProfile then getProfile", () => {
+    const data = {
+      nif: "12345678Z",
+      apellidos: "Garcia",
+      nombre: "Juan",
+      ccaa: "Madrid",
+      telefono: "600123456",
+      year: 2025,
+      monodivisa: false,
+      titulares: 1,
+      trackAutoConvert: true,
+      fxStockLossDestruction: true,
+    };
+    saveProfile(data);
+    expect(getProfile()).toEqual(data);
+    expect(getProfile().fxStockLossDestruction).toBe(true);
+  });
+
   it("should merge partial stored JSON with defaults", () => {
     localStorage.setItem("declarenta_profile", JSON.stringify({ nif: "12345678Z" }));
     const profile = getProfile();

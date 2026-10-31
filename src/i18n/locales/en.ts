@@ -245,6 +245,9 @@ const en: TranslationKeys = {
   "profile.track_autoconvert_label": "Process broker auto-conversions (AFx/FXCONV)",
   "profile.track_autoconvert_detail":
     "On by default. Interactive Brokers does not convert back to euros when you sell a stock, so the currency balance is real and converting it later produces a capital gain or loss (Art. 33.1 LIRPF). Turn it off only if your broker does a full EUR↔currency round-trip and you want to ignore the currency effect.",
+  "profile.fx_stock_loss_destruction_label": "Destroy currency on stock losses (no tax disposal)",
+  "profile.fx_stock_loss_destruction_detail":
+    "When selling foreign stocks at a loss, consume FX lots from pool without emitting tax disposals in Renta (fork mode).",
   "profile.titulares_label": "Number of account holders:",
   "profile.titulares_detail":
     "If the account has several holders (e.g. a joint or community-property account), DeclaRenta divides every amount equally to show each taxpayer's share (Art. 11.3 LIRPF). Each holder files their own individual return for their share.",

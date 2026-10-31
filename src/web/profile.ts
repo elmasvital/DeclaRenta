@@ -44,7 +44,6 @@ const DEFAULT_PROFILE: FiscalProfile = {
   monodivisa: false,
   trackAutoConvert: true,
   titulares: 1,
-  fxStockLossDestruction: false,
 };
 
 /** Get the current fiscal profile from localStorage */
@@ -66,6 +65,9 @@ export function getProfile(): FiscalProfile {
       if (typeof parsed.trackAutoConvert === "boolean") profile.trackAutoConvert = parsed.trackAutoConvert;
       if (typeof parsed.titulares === "number" && Number.isInteger(parsed.titulares) && parsed.titulares >= 1) {
         profile.titulares = parsed.titulares;
+      }
+      if (parsed.fxStockLossDestruction === true) {
+        profile.fxStockLossDestruction = true;
       }
       return profile;
     }
@@ -212,6 +214,13 @@ export function initProfile(): void {
           </label>
           <p class="monodivisa-detail" id="track-autoconvert-detail">${t("profile.track_autoconvert_detail")}</p>
         </div>
+        <div class="monodivisa-callout">
+          <label class="monodivisa-toggle">
+            <input type="checkbox" id="profile-fx-stock-loss-destruction" aria-describedby="fx-stock-loss-detail" ${profile.fxStockLossDestruction ? "checked" : ""} />
+            <span class="monodivisa-label"><strong>${t("profile.fx_stock_loss_destruction_label")}</strong></span>
+          </label>
+          <p class="monodivisa-detail" id="fx-stock-loss-detail">${t("profile.fx_stock_loss_destruction_detail")}</p>
+        </div>
       </fieldset>
 
       <div class="profile-actions">
@@ -233,6 +242,7 @@ export function initProfile(): void {
       monodivisa: (document.getElementById("profile-monodivisa") as HTMLInputElement).checked,
       trackAutoConvert: (document.getElementById("profile-track-autoconvert") as HTMLInputElement).checked,
       titulares: parseInt((document.getElementById("profile-titulares") as HTMLSelectElement).value, 10) || 1,
+      ...((document.getElementById("profile-fx-stock-loss-destruction") as HTMLInputElement)?.checked ? { fxStockLossDestruction: true } : {}),
     };
   }
 
