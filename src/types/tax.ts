@@ -299,6 +299,7 @@ export interface ReportSettings {
   trackAutoConvert: boolean;
   /** Number of account holders the amounts are split between. */
   titulares: number;
+  fxStockLossDestruction?: boolean;
 }
 
 /** Aggregated results for Modelo 100 casillas */
@@ -567,6 +568,14 @@ export interface FxDisposal {
 }
 
 /** Loss carryforward entry (Art. 49 LIRPF) */
+
+/**
+ * Mode of handling foreign currency when stocks bought in FCY are sold.
+ * - "carry-basis" (default upstream): buy parks FCY cost, sell unparks matched principal at original rate and profit at sale rate.
+ * - "destruction" (fork mode): buy does not park, and sell with FCY loss consumes lots from the currency pool without emitting tax disposals.
+ */
+export type FxStockLossMode = "carry-basis" | "destruction";
+
 export interface LossCarryforward {
   /** Tax year the loss was generated */
   year: number;

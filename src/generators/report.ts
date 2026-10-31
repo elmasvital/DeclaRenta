@@ -9,6 +9,7 @@
 import Decimal from "decimal.js";
 import type { CashTransaction, FlexStatement, Trade } from "../types/ibkr.js";
 import type {
+  FxStockLossMode,
   TaxSummary,
   TaxMessage,
   FifoDisposal,
@@ -359,6 +360,12 @@ export interface ReportOptions {
    * doesn't run. NEVER surfaced in the standard UI.
    */
   fxTrace?: boolean;
+  /**
+   * Foreign currency stock loss treatment mode:
+   * "carry-basis" (default): issue #230 carry-basis model.
+   * "destruction": fork model where stock buys do not park, and sales with FCY loss consume FX lots without tax disposals.
+   */
+  fxStockLossMode?: FxStockLossMode;
 
   /**
    * User-supplied opening lots for positions transferred from another broker.
@@ -598,7 +605,7 @@ export function generateTaxReport(
   let fxTrace: FxTraceEvent[] | undefined;
 
   if (!options?.skipFx) {
-    const fxEngine = new FxFifoEngine();
+    const fxEngine = new FxFifoEngine({ stockLossMode: options?.fxStockLossMode });
     if (options?.fxTrace) fxEngine.enableTrace();
     // Process broker auto-conversions (AFx/FXCONV) by default; the opt-out
     // (trackAutoConvert === false) restores the historical skip (issue #239).
@@ -816,6 +823,7 @@ export function generateTaxReport(
       monodivisa: options?.skipFx === true,
       trackAutoConvert: options?.trackAutoConvert !== false,
       titulares,
+      fxStockLossDestruction: options?.fxStockLossMode === "destruction",
     },
     messages: allMessages,
     unresolvedCryptoValuations: yearUnresolvedCrypto.length > 0 ? yearUnresolvedCrypto : undefined,

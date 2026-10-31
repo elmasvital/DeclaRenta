@@ -21,6 +21,7 @@ import type {
   TaxMessage,
   FxTraceEvent,
   FxTraceKind,
+  FxStockLossMode,
 } from "../types/tax.js";
 import type { ManualOpeningLot } from "../types/tax.js";
 import type { Trade, CashTransaction } from "../types/ibkr.js";
@@ -111,6 +112,11 @@ export interface FxEvent {
   positionKey?: string;
 }
 
+
+export interface FxFifoEngineOptions {
+  stockLossMode?: FxStockLossMode;
+}
+
 export class FxFifoEngine {
   private lots: Map<string, FxLot[]> = new Map();
   private disposals: FxDisposal[] = [];
@@ -125,6 +131,17 @@ export class FxFifoEngine {
   }
 
   private fxMissing: Map<string, { count: number; totalQty: Decimal }> = new Map();
+
+  private readonly stockLossMode: FxStockLossMode;
+
+  constructor(options?: FxFifoEngineOptions) {
+    this.stockLossMode = options?.stockLossMode ?? "carry-basis";
+  }
+
+  getStockLossMode(): FxStockLossMode {
+    return this.stockLossMode;
+  }
+
 
   /**
    * ALWAYS-ON per-currency conservation accumulators (issue #230 follow-up — the
@@ -410,9 +427,17 @@ export class FxFifoEngine {
       if (event.currency === "EUR") continue;
 
       if (event.kind === "stock_buy") {
+        if (this.stockLossMode === "destruction") {
+          // In destruction mode, buy principal is not parked in stock positions
+          continue;
+        }
         this.parkPrincipal(event);
       } else if (event.kind === "stock_sell") {
-        this.unparkAndReadd(event);
+        if (this.stockLossMode === "destruction") {
+          this.processStockSellDestruction(event);
+        } else {
+          this.unparkAndReadd(event);
+        }
       } else if (event.quantity.greaterThan(0)) {
         this.addLot(event);
       } else if (event.quantity.lessThan(0)) {
@@ -1537,6 +1562,83 @@ export class FxFifoEngine {
       this.pushPoolLot(event.currency, event.date, profit, saleRate, event.brokerSource);
       this.record("profit", event, { quantityFcy: profit, rate: saleRate });
       this.accumulate("profit", event.currency, profit);
+    }
+  }
+
+  /**
+   * Process a stock sale in destruction mode (fork logic).
+   * - If proceeds > cost: net profit in FCY enters the pool as fresh dollars at the sale rate.
+   * - If proceeds < cost: net loss in FCY is consumed/destroyed from prior pool lots without generating tax disposals.
+   */
+  private processStockSellDestruction(event: FxEvent): void {
+    const cost = event.costFcy ?? new Decimal(0);
+    const proc = event.proceedsFcy ?? new Decimal(0);
+    const saleRate = event.ecbRate;
+    const EPS = FxFifoEngine.EPS;
+
+    const profit = proc.minus(cost);
+    if (profit.greaterThan(EPS)) {
+      this.pushPoolLot(event.currency, event.date, profit, saleRate, event.brokerSource);
+      this.record("profit", event, { quantityFcy: profit, rate: saleRate, note: "plusvalía en venta de acciones" });
+      this.accumulate("profit", event.currency, profit);
+    } else if (profit.lessThan(EPS.negated())) {
+      const lossQty = profit.abs();
+      this.lossFxFifo(event, lossQty);
+    }
+  }
+
+  /**
+   * Consume and destroy foreign currency lots corresponding to a stock sale loss (fork logic).
+   * Consumes lots FIFO from this.lots, registers them in trace as "discard",
+   * and accumulates them into accDiscarded so conservation identity balances,
+   * without emitting any FxDisposal (no tax gain/loss in Renta for destroyed currency).
+   */
+  private lossFxFifo(event: FxEvent, lossQty: Decimal): void {
+    let remaining = lossQty;
+    const lots = this.lots.get(event.currency);
+    const effRate = FxFifoEngine.effectiveRate(event);
+
+    if (!lots || lots.length === 0) {
+      this.accumulate("discard", event.currency, remaining);
+      this.record("discard", event, {
+        quantityFcy: remaining,
+        rate: effRate,
+        note: "sin lotes previos → minusvalía bursátil sin hecho imponible",
+      });
+      return;
+    }
+
+    while (remaining.greaterThan(FxFifoEngine.EPS) && lots.length > 0) {
+      const lot = lots[0]!;
+      const consumed = Decimal.min(remaining, lot.quantity);
+      const costBasisEur = consumed.mul(lot.costPerUnit);
+
+      lot.quantity = lot.quantity.minus(consumed);
+      lot.costInEur = lot.costInEur.minus(costBasisEur);
+
+      if (lot.quantity.lessThan(FxFifoEngine.EPS)) {
+        lots.shift();
+      }
+
+      remaining = remaining.minus(consumed);
+
+      this.record("discard", event, {
+        quantityFcy: consumed,
+        rate: lot.costPerUnit,
+        lotId: lot.id,
+        lotAcquireDate: lot.acquireDate,
+        note: "minusvalía bursátil → divisa destruida sin hecho imponible",
+      });
+      this.accumulate("discard", event.currency, consumed);
+    }
+
+    if (remaining.greaterThan(FxFifoEngine.EPS)) {
+      this.accumulate("discard", event.currency, remaining);
+      this.record("discard", event, {
+        quantityFcy: remaining,
+        rate: effRate,
+        note: "lotes insuficientes → minusvalía bursátil sin hecho imponible",
+      });
     }
   }
 

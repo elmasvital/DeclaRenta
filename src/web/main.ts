@@ -283,7 +283,7 @@ let activeYear: number | null = null;
 let lastRunSettings: ReportSettings | null = null;
 
 function settingsFromProfile(p: FiscalProfile): ReportSettings {
-  return { monodivisa: p.monodivisa, trackAutoConvert: p.trackAutoConvert, titulares: p.titulares };
+  return { monodivisa: p.monodivisa, trackAutoConvert: p.trackAutoConvert, titulares: p.titulares, fxStockLossDestruction: p.fxStockLossDestruction };
 }
 /**
  * The year of the results currently rendered on the Results step, or null when
@@ -871,6 +871,7 @@ async function processFiles(): Promise<void> {
       // diagnostic mode. False by default → zero cost, normal path unchanged.
       fxTrace: isDebugMode(),
       manualOpeningLots,
+      fxStockLossMode: profileForReport.fxStockLossDestruction ? "destruction" : "carry-basis",
     });
     currentReport = report;
     currentBrokers = detectedBrokers;
