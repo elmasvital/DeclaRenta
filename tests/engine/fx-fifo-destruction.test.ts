@@ -160,3 +160,4 @@ describe("FxFifoEngine: stockLossMode flag", () => {
     });
   });
 });
+
