@@ -13,14 +13,18 @@ type Translate = (key: TranslationKey, params?: Record<string, string>) => strin
 
 export function formatReportSettings(settings: ReportSettings, t: Translate): string {
   const yesNo = (value: boolean) => t(value ? "results.setting_yes" : "results.setting_no");
+  const stockLossMode = settings.stockLossMode ?? (settings.fxStockLossDestruction ? "destruction" : "carry-basis");
   return t("results.settings_used", {
     monodivisa: yesNo(settings.monodivisa),
     titulares: String(settings.titulares),
     autoconvert: yesNo(settings.trackAutoConvert),
+    stockLossMode,
   });
 }
 
 /** True when two settings would produce different figures. */
 export function reportSettingsDiffer(a: ReportSettings, b: ReportSettings): boolean {
-  return a.monodivisa !== b.monodivisa || a.trackAutoConvert !== b.trackAutoConvert || a.titulares !== b.titulares || a.fxStockLossDestruction !== b.fxStockLossDestruction;
+  const modeA = a.stockLossMode ?? (a.fxStockLossDestruction ? "destruction" : "carry-basis");
+  const modeB = b.stockLossMode ?? (b.fxStockLossDestruction ? "destruction" : "carry-basis");
+  return a.monodivisa !== b.monodivisa || a.trackAutoConvert !== b.trackAutoConvert || a.titulares !== b.titulares || modeA !== modeB;
 }

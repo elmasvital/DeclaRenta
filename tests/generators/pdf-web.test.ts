@@ -398,7 +398,7 @@ describe("generatePdfWebReport settings line", () => {
     );
     const text = new TextDecoder().decode(await blob.arrayBuffer());
     expect(text).toContain(
-      "results.settings_used[monodivisa=results.setting_yes;titulares=3;autoconvert=results.setting_no]",
+      "results.settings_used[monodivisa=results.setting_yes;titulares=3;autoconvert=results.setting_no;stockLossMode=carry-basis]",
     );
   });
 

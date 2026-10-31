@@ -97,7 +97,7 @@ export function generatePdfReport(report: TaxSummary): Promise<Buffer> {
         const s = report.settings;
         const yesNo = (v: boolean) => (v ? "sí" : "no");
         doc.text(
-          `Ajustes del cálculo: monodivisa ${yesNo(s.monodivisa)}, titulares ${s.titulares}, autoconversiones ${yesNo(s.trackAutoConvert)}`,
+          `Ajustes del cálculo: monodivisa ${yesNo(s.monodivisa)}, titulares ${s.titulares}, autoconversiones ${yesNo(s.trackAutoConvert)}, stockLossMode ${s.stockLossMode ?? (s.fxStockLossDestruction ? "destruction" : "carry-basis")}`,
           { align: "left" },
         );
       }

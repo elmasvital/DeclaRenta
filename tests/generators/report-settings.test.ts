@@ -36,14 +36,14 @@ describe("formatReportSettings", () => {
   it("reads in Spanish", async () => {
     await setLocale("es");
     expect(formatReportSettings({ monodivisa: true, trackAutoConvert: true, titulares: 2 }, t)).toBe(
-      "Ajustes del cálculo: monodivisa sí, titulares 2, autoconversiones sí",
+      "Ajustes del cálculo: monodivisa sí, titulares 2, autoconversiones sí, stockLossMode carry-basis",
     );
   });
 
   it("follows the active locale", async () => {
     await setLocale("en");
     expect(formatReportSettings({ monodivisa: false, trackAutoConvert: false, titulares: 1 }, t)).toBe(
-      "Calculation settings: single-currency no, holders 1, auto-conversions no",
+      "Calculation settings: single-currency no, holders 1, auto-conversions no, stockLossMode carry-basis",
     );
   });
 

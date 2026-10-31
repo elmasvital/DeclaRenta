@@ -50,7 +50,7 @@ const es = {
   "results.newer_years_notice": "Mostrando {{year}}; tus datos también cubren {{years}}.",
   "results.year_mismatch":
     "El fichero contiene datos de los ejercicios {{available}}, pero el ejercicio seleccionado es {{year}}. Selecciona otro año en el desplegable superior.",
-  "results.settings_used": "Ajustes del cálculo: monodivisa {{monodivisa}}, titulares {{titulares}}, autoconversiones {{autoconvert}}",
+  "results.settings_used": "Ajustes del cálculo: monodivisa {{monodivisa}}, titulares {{titulares}}, autoconversiones {{autoconvert}}, stockLossMode {{stockLossMode}}",
   "results.setting_yes": "sí",
   "results.setting_no": "no",
 

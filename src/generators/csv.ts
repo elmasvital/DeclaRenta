@@ -49,6 +49,7 @@ export function formatCsv(report: TaxSummary, dialect: CsvDialect = "standard"):
     lines.push(row(["Monodivisa", report.settings.monodivisa ? "SI" : "NO"]));
     lines.push(row(["Titulares", String(report.settings.titulares)]));
     lines.push(row(["Procesar_Autoconversiones", report.settings.trackAutoConvert ? "SI" : "NO"]));
+    lines.push(row(["StockLossMode", report.settings.stockLossMode ?? (report.settings.fxStockLossDestruction ? "destruction" : "carry-basis")]));
     lines.push("");
   }
 

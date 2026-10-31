@@ -299,6 +299,7 @@ export interface ReportSettings {
   trackAutoConvert: boolean;
   /** Number of account holders the amounts are split between. */
   titulares: number;
+  stockLossMode?: FxStockLossMode;
   fxStockLossDestruction?: boolean;
 }
 
