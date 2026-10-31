@@ -23,6 +23,8 @@ export interface FiscalProfile {
   trackAutoConvert: boolean;
   /** Número de titulares de la cuenta. 1 = individual. >1 reparte los importes a partes iguales por contribuyente (Art. 11.3 LIRPF). */
   titulares: number;
+  /** Tratar pérdidas en venta de acciones en divisa como destrucción de divisa sin venta fiscal (modo fork) */
+  fxStockLossDestruction?: boolean;
 }
 
 const CCAA_LIST = [
@@ -42,6 +44,7 @@ const DEFAULT_PROFILE: FiscalProfile = {
   monodivisa: false,
   trackAutoConvert: true,
   titulares: 1,
+  fxStockLossDestruction: false,
 };
 
 /** Get the current fiscal profile from localStorage */

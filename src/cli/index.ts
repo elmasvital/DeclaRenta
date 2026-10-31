@@ -229,6 +229,10 @@ program
     "Volcar la traza de movimientos del motor FX (acuñar/aparcar/desaparcar/descartar/convertir) para auditoría. Sin valor → stderr; con ruta → fichero.",
   )
   .addOption(new Option("--fx-trace-format <format>", "Formato de la traza FX").choices(["jsonl", "csv"]).default("jsonl"))
+  .option(
+    "--fx-stock-loss-destruction",
+    "Tratar las pérdidas en venta de acciones en divisa como destrucción de divisa sin generar hechos imponibles en Renta (modo fork)",
+  )
   .action(
     async (opts: {
       input: string[];
@@ -243,6 +247,7 @@ program
       cryptoRates?: string;
       fxTrace?: string | boolean;
       fxTraceFormat?: string;
+      fxStockLossDestruction?: boolean;
     }) => {
       try {
         console.error(`DeclaRenta v${pkg.version} - Ejercicio ${opts.year}, ${opts.input.length} fichero(s)...`);
@@ -297,6 +302,7 @@ program
           titulares: opts.titulares,
           manualRates,
           fxTrace: opts.fxTrace !== undefined && opts.fxTrace !== false,
+          fxStockLossMode: opts.fxStockLossDestruction ? "destruction" : "carry-basis",
         });
         if (opts.titulares && opts.titulares > 1) {
           console.error(`  Titulares: ${opts.titulares} (importes divididos por contribuyente)`);
