@@ -573,7 +573,7 @@ describe("PDF Report Generator settings line", () => {
   it("prints the settings the figures were computed with", async () => {
     const spy = vi.spyOn(PDFDocument.prototype, "text");
     await generatePdfReport(makeReport({ settings: { monodivisa: true, trackAutoConvert: false, titulares: 2 } }));
-    expect(rendered(spy)).toContain("Ajustes del cálculo: monodivisa sí, titulares 2, autoconversiones no");
+    expect(rendered(spy)).toContain("Ajustes del cálculo: monodivisa sí, titulares 2, autoconversiones no, stockLossMode carry-basis");
   });
 
   it("prints no settings line for a report without settings", async () => {

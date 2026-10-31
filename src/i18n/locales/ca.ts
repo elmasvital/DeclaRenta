@@ -49,7 +49,7 @@ const ca: TranslationKeys = {
   "results.newer_years_notice": "Es mostra {{year}}; les teves dades també cobreixen {{years}}.",
   "results.year_mismatch":
     "El fitxer conté dades dels exercicis {{available}}, però l'exercici seleccionat és {{year}}. Selecciona un altre any al desplegable superior.",
-  "results.settings_used": "Configuració del càlcul: monodivisa {{monodivisa}}, titulars {{titulares}}, autoconversions {{autoconvert}}",
+  "results.settings_used": "Configuració del càlcul: monodivisa {{monodivisa}}, titulars {{titulares}}, autoconversions {{autoconvert}}, stockLossMode {{stockLossMode}}",
   "results.setting_yes": "sí",
   "results.setting_no": "no",
 

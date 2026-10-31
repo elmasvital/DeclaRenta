@@ -49,7 +49,7 @@ const eu: TranslationKeys = {
   "results.newer_years_notice": "{{year}} erakusten da; zure datuek {{years}} ere hartzen dute.",
   "results.year_mismatch":
     "Fitxategiak {{available}} ekitaldietako datuak ditu, baina hautatutako ekitaldia {{year}} da. Hautatu beste urte bat goiko zerrendan.",
-  "results.settings_used": "Kalkuluaren ezarpenak: monodibisa {{monodivisa}}, titularrak {{titulares}}, auto-bihurketak {{autoconvert}}",
+  "results.settings_used": "Kalkuluaren ezarpenak: monodibisa {{monodivisa}}, titularrak {{titulares}}, auto-bihurketak {{autoconvert}}, stockLossMode {{stockLossMode}}",
   "results.setting_yes": "bai",
   "results.setting_no": "ez",
 

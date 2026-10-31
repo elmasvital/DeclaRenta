@@ -341,20 +341,21 @@ describe("formatCsv settings section", () => {
   it("opens with the settings the figures were computed with", () => {
     const csv = formatCsv(makeReport({ settings: { monodivisa: true, trackAutoConvert: false, titulares: 2 } }));
     const lines = csv.split("\n");
-    expect(lines.slice(0, 6)).toEqual([
+    expect(lines.slice(0, 7)).toEqual([
       "# AJUSTES DEL CALCULO",
       "Ajuste,Valor",
       "Monodivisa,SI",
       "Titulares,2",
       "Procesar_Autoconversiones,NO",
+      "StockLossMode,carry-basis",
       "",
     ]);
-    expect(lines[6]).toBe("# GANANCIAS PATRIMONIALES");
+    expect(lines[7]).toBe("# GANANCIAS PATRIMONIALES");
   });
 
   it("uses the Excel separator in the settings section too", () => {
     const csv = formatCsv(makeReport({ settings: { monodivisa: true, trackAutoConvert: false, titulares: 2 } }), "excel-es");
-    expect(csv.split("\n").slice(1, 5)).toEqual(["Ajuste;Valor", "Monodivisa;SI", "Titulares;2", "Procesar_Autoconversiones;NO"]);
+    expect(csv.split("\n").slice(1, 6)).toEqual(["Ajuste;Valor", "Monodivisa;SI", "Titulares;2", "Procesar_Autoconversiones;NO", "StockLossMode;carry-basis"]);
   });
 
   it("omits the section for a report without settings", () => {
