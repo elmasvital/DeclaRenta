@@ -7,6 +7,11 @@ import {
   printFxRemainingLots,
   printFxLotsClosed,
   printFxDisposals,
+  printFxLotsOverview,
+  printFxAllLots,
+  trackFxLotEvent,
+  resetFxLotTracker,
+  type FxLotStatus,
   brokersPerm,
   colores,
   formatBrokerAlias,
@@ -306,5 +311,148 @@ describe("fx-logger utilities (Capa 3)", () => {
     brokersPerm.length = 0;
     expect(formatFxTraceEvent(ev1)).toContain("IBKR");
     expect(formatFxTraceEvent(ev2)).toContain("LY");
+  });
+  it("prints FX lots overview table with open/closed status, original, remaining, and parked quantities", () => {
+    const lots: FxLotStatus[] = [
+      {
+        id: "FX-1",
+        currency: "USD",
+        acquireDate: "2024-01-10",
+        originalQuantity: new Decimal(1000),
+        remainingQuantity: new Decimal(400),
+        parkedQuantity: new Decimal(300),
+        isOpen: true,
+        trigger: "conversion",
+        brokerSource: "Interactive Brokers",
+      },
+      {
+        id: "FX-2",
+        currency: "USD",
+        acquireDate: "2024-01-15",
+        originalQuantity: new Decimal(500),
+        remainingQuantity: new Decimal(0),
+        parkedQuantity: new Decimal(0),
+        isOpen: false,
+        trigger: "dividend",
+        brokerSource: "Lightyear",
+      },
+    ];
+
+    printFxLotsOverview(lots);
+
+    expect(consoleSpy).toHaveBeenCalled();
+    const calls = consoleSpy.mock.calls.map((c) => c.join(" ")).join("\n");
+    // Header shows open / total count
+    expect(calls).toContain("1 abiertos / 2 totales");
+    // Column headers
+    expect(calls).toContain("ESTADO");
+    expect(calls).toContain("CANT. ORIGINAL");
+    expect(calls).toContain("CANT. RESTANTE");
+    expect(calls).toContain("CANT. APARCADA");
+    // Lot 1 details
+    expect(calls).toContain("FX-1");
+    expect(calls).toContain("[ABIERTO]");
+    expect(calls).toContain("1000.00 USD");
+    expect(calls).toContain("400.00 USD");
+    expect(calls).toContain("300.00 USD");
+    expect(calls).toContain("IBKR"); // Broker alias
+    // Lot 2 details
+    expect(calls).toContain("FX-2");
+    expect(calls).toContain("[CERRADO]");
+    expect(calls).toContain("0.00 USD");
+    expect(calls).toContain("LY"); // Broker alias
+  });
+
+  it("filters FX lots overview by brokersPerm alias", () => {
+    const lots: FxLotStatus[] = [
+      {
+        id: "FX-1",
+        currency: "USD",
+        acquireDate: "2024-01-10",
+        originalQuantity: 1000,
+        remainingQuantity: 1000,
+        parkedQuantity: 0,
+        isOpen: true,
+        brokerSource: "Interactive Brokers",
+      },
+      {
+        id: "FX-2",
+        currency: "USD",
+        acquireDate: "2024-01-15",
+        originalQuantity: 500,
+        remainingQuantity: 500,
+        parkedQuantity: 0,
+        isOpen: true,
+        brokerSource: "Lightyear",
+      },
+    ];
+
+    brokersPerm.push("IBKR");
+    printFxLotsOverview(lots);
+
+    const calls = consoleSpy.mock.calls.map((c) => c.join(" ")).join("\n");
+    expect(calls).toContain("FX-1");
+    expect(calls).not.toContain("FX-2");
+    expect(calls).toContain("1 abiertos / 1 totales");
+  });
+
+  it("tracks FX lot lifecycle across trace events automatically", () => {
+    resetFxLotTracker();
+
+    // 1. Acquire creates lot
+    trackFxLotEvent({
+      seq: 1,
+      date: "2024-01-10",
+      kind: "acquire",
+      currency: "USD",
+      trigger: "conversion",
+      quantityFcy: "1000",
+      rate: "0.92",
+      poolBalanceFcy: "1000",
+      parkedBalanceFcy: "0",
+      lotId: "FX-1",
+      brokerSource: "Interactive Brokers",
+    });
+
+    // 2. Park 300 from FX-1
+    trackFxLotEvent({
+      seq: 2,
+      date: "2024-01-15",
+      kind: "park",
+      currency: "USD",
+      trigger: "stock_purchase",
+      quantityFcy: "300",
+      rate: "0.92",
+      poolBalanceFcy: "700",
+      parkedBalanceFcy: "300",
+      lotId: "FX-1",
+      brokerSource: "Interactive Brokers",
+    });
+
+    // 3. Dispose 200 from FX-1
+    trackFxLotEvent({
+      seq: 3,
+      date: "2024-01-20",
+      kind: "dispose",
+      currency: "USD",
+      trigger: "conversion",
+      quantityFcy: "200",
+      rate: "0.93",
+      poolBalanceFcy: "500",
+      parkedBalanceFcy: "300",
+      lotId: "FX-1",
+      brokerSource: "Interactive Brokers",
+    });
+
+    // Overview printed from internal tracker
+    printFxLotsOverview();
+
+    const calls = consoleSpy.mock.calls.map((c) => c.join(" ")).join("\n");
+    expect(calls).toContain("FX-1");
+    expect(calls).toContain("[ABIERTO]");
+    expect(calls).toContain("1000.00 USD"); // original
+    expect(calls).toContain("500.00 USD");  // remaining
+    expect(calls).toContain("300.00 USD");  // parked
+    expect(calls).toContain("IBKR");
   });
 });

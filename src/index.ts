@@ -68,6 +68,13 @@ export {
   printFxRemainingLots,
   printFxLotsClosed,
   printFxDisposals,
+  printFxLotsOverview,
+  printFxAllLots,
+  printFxLotsOverviewEnabled,
+  trackFxLotEvent,
+  resetFxLotTracker,
+  getTrackedFxLots,
+  type FxLotStatus,
 } from "./utils/fx-logger.js";
 
 // i18n
