@@ -16,6 +16,7 @@ import { generateTaxReport } from "../generators/report.js";
 import { csvDownload } from "./csv-download.js";
 import { formatReportSettings, reportSettingsDiffer } from "../generators/report-settings.js";
 import { serializeFxTrace } from "../generators/fx-trace.js";
+import { logFxTraceEvent, printFxDisposals } from "../utils/fx-logger.js";
 import { normalizeDate } from "../engine/dates.js";
 import { openDisclaimer } from "./disclaimer.js";
 import {
@@ -168,7 +169,8 @@ langSelect.addEventListener("change", () => {
 document.addEventListener("profilechange", (e) => {
   if (!currentReport || !mergedStatement || !lastRunSettings) return;
   const next = settingsFromProfile((e as CustomEvent<FiscalProfile>).detail);
-  if (reportSettingsDiffer(lastRunSettings, next)) rerunWithOverlay();
+  const verboseChanged = Boolean(lastRunSettings.fxVerbose) !== Boolean(next.fxVerbose);
+  if (reportSettingsDiffer(lastRunSettings, next) || verboseChanged) rerunWithOverlay();
 });
 
 /**
@@ -243,7 +245,11 @@ document.getElementById("theme-toggle")?.addEventListener("click", () => {
  * FX engine skips trace capture at zero cost). The FX-FIFO trace is a
  * developer/advisor audit artifact that must never reach end users.
  */
-const isDebugMode = (): boolean => location.hash.includes("debug") || localStorage.getItem("declarenta_debug") === "1";
+const isDebugMode = (): boolean =>
+  location.hash.includes("debug") ||
+  location.hash.includes("verbose") ||
+  localStorage.getItem("declarenta_debug") === "1" ||
+  getProfile().fxVerbose === true;
 
 // ---------------------------------------------------------------------------
 // DOM references
@@ -282,7 +288,13 @@ let activeYear: number | null = null;
 let lastRunSettings: ReportSettings | null = null;
 
 function settingsFromProfile(p: FiscalProfile): ReportSettings {
-  return { monodivisa: p.monodivisa, trackAutoConvert: p.trackAutoConvert, titulares: p.titulares, fxStockLossDestruction: p.fxStockLossDestruction };
+  return {
+    monodivisa: p.monodivisa,
+    trackAutoConvert: p.trackAutoConvert,
+    titulares: p.titulares,
+    fxStockLossDestruction: p.fxStockLossDestruction,
+    fxVerbose: p.fxVerbose,
+  };
 }
 /**
  * The year of the results currently rendered on the Results step, or null when
@@ -858,10 +870,14 @@ async function processFiles(): Promise<void> {
       manualRates: getManualRates(),
       // Opt-in FX-FIFO movement trace, captured in the SAME run only in hidden
       // diagnostic mode. False by default → zero cost, normal path unchanged.
-      fxTrace: isDebugMode(),
+      fxTrace: isDebugMode() || Boolean(profileForReport.fxVerbose),
       manualOpeningLots,
       fxStockLossMode: profileForReport.fxStockLossDestruction ? "destruction" : "carry-basis",
+      onFxTraceEvent: profileForReport.fxVerbose ? logFxTraceEvent : undefined,
     });
+    if (profileForReport.fxVerbose && report.fxGains.disposals.length > 0) {
+      printFxDisposals(report.fxGains.disposals);
+    }
     currentReport = report;
     currentBrokers = detectedBrokers;
 

@@ -301,6 +301,7 @@ export interface ReportSettings {
   titulares: number;
   stockLossMode?: FxStockLossMode;
   fxStockLossDestruction?: boolean;
+  fxVerbose?: boolean;
 }
 
 /** Aggregated results for Modelo 100 casillas */

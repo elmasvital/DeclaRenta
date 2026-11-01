@@ -248,6 +248,9 @@ const en: TranslationKeys = {
   "profile.track_autoconvert_detail":
     "On by default. Interactive Brokers does not convert back to euros when you sell a stock, so the currency balance is real and converting it later produces a capital gain or loss (Art. 33.1 LIRPF). Turn it off only if your broker does a full EUR↔currency round-trip and you want to ignore the currency effect.",
   "profile.fx_stock_loss_destruction_label": "Global FX FIFO (no parking in stock positions)",
+  "profile.fx_verbose_label": "Verbose FX traces in browser console (F12)",
+  "profile.fx_verbose_detail":
+    "Prints real-time FX FIFO movements with ANSI colors and lot summaries into the browser developer console (F12).",
   "profile.fx_stock_loss_destruction_detail":
     "Applies strict global FIFO to EUR conversions across all currency balances without locking them into stocks, and discards stock losses without generating tax disposals.",
   "profile.titulares_label": "Number of account holders:",

@@ -192,4 +192,11 @@ describe("results follow the profile settings", () => {
     expect(lastOptions().fxStockLossMode).toBe("destruction");
     expect(settingsText()).toContain("stockLossMode destruction");
   });
+  it("recalculates and passes onFxTraceEvent when fxVerbose is toggled", async () => {
+    const before = generateTaxReport.mock.calls.length;
+    edit("profile-fx-verbose", (el) => { el.checked = true; });
+    await waitForRecalc(before);
+    expect(lastOptions().onFxTraceEvent).toBeDefined();
+    expect(lastOptions().fxTrace).toBe(true);
+  });
 });

@@ -25,6 +25,8 @@ export interface FiscalProfile {
   titulares: number;
   /** Tratar pérdidas en venta de acciones en divisa como destrucción de divisa sin venta fiscal (modo fork) */
   fxStockLossDestruction?: boolean;
+  /** Trazas detalladas de divisa en consola (F12) */
+  fxVerbose?: boolean;
 }
 
 const CCAA_LIST = [
@@ -68,6 +70,9 @@ export function getProfile(): FiscalProfile {
       }
       if (parsed.fxStockLossDestruction === true) {
         profile.fxStockLossDestruction = true;
+      }
+      if (parsed.fxVerbose === true) {
+        profile.fxVerbose = true;
       }
       return profile;
     }
@@ -221,6 +226,13 @@ export function initProfile(): void {
           </label>
           <p class="monodivisa-detail" id="fx-stock-loss-detail">${t("profile.fx_stock_loss_destruction_detail")}</p>
         </div>
+        <div class="monodivisa-callout">
+          <label class="monodivisa-toggle">
+            <input type="checkbox" id="profile-fx-verbose" aria-describedby="fx-verbose-detail" ${profile.fxVerbose ? "checked" : ""} />
+            <span class="monodivisa-label"><strong>${t("profile.fx_verbose_label")}</strong></span>
+          </label>
+          <p class="monodivisa-detail" id="fx-verbose-detail">${t("profile.fx_verbose_detail")}</p>
+        </div>
       </fieldset>
 
       <div class="profile-actions">
@@ -243,6 +255,7 @@ export function initProfile(): void {
       trackAutoConvert: (document.getElementById("profile-track-autoconvert") as HTMLInputElement).checked,
       titulares: parseInt((document.getElementById("profile-titulares") as HTMLSelectElement).value, 10) || 1,
       ...((document.getElementById("profile-fx-stock-loss-destruction") as HTMLInputElement)?.checked ? { fxStockLossDestruction: true } : {}),
+      ...((document.getElementById("profile-fx-verbose") as HTMLInputElement)?.checked ? { fxVerbose: true } : {}),
     };
   }
 

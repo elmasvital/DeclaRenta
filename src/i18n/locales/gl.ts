@@ -248,6 +248,9 @@ const gl: TranslationKeys = {
   "profile.track_autoconvert_detail":
     "Activado por defecto. Interactive Brokers non reconverte a euros ao vender unha acción, así que o saldo en divisa é real e convertelo despois xera unha ganancia ou perda patrimonial (art. 33.1 LIRPF). Desactívao só se o teu bróker fai un round-trip completo EUR↔divisa e queres ignorar o efecto da divisa.",
   "profile.fx_stock_loss_destruction_label": "FIFO global de divisa (sen aparcamento en accións)",
+  "profile.fx_verbose_label": "Trazas detalladas de divisa na consola (F12)",
+  "profile.fx_verbose_detail":
+    "Amosa en tempo real os movementos FIFO de divisa con cores ANSI e o volcado de lotes na consola de ferramentas de desenvolvemento (F12).",
   "profile.fx_stock_loss_destruction_detail":
     "Aplica FIFO estrito en conversións a euros sobre todo o saldo en divisa sen inmobilizalo en accións, e desconta as minusvalías bolsistas sen xerar venda fiscal de moeda.",
   "profile.titulares_label": "Número de titulares:",

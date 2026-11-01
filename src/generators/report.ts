@@ -607,7 +607,11 @@ export function generateTaxReport(
   let fxTrace: FxTraceEvent[] | undefined;
 
   if (!options?.skipFx) {
-    const fxEngine = new FxFifoEngine({ stockLossMode: options?.fxStockLossMode });
+    const fxEngine = new FxFifoEngine({
+      stockLossMode: options?.fxStockLossMode,
+      onTraceEvent: options?.onFxTraceEvent,
+    });
+    if (options?.onFxTraceEvent) fxEngine.enableTrace();
     if (options?.fxTrace) fxEngine.enableTrace();
     // Process broker auto-conversions (AFx/FXCONV) by default; the opt-out
     // (trackAutoConvert === false) restores the historical skip (issue #239).
