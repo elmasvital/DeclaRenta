@@ -9,6 +9,8 @@ import {
   printFxDisposals,
   brokersPerm,
   colores,
+  formatBrokerAlias,
+  isBrokerPermitted,
 } from "../../src/utils/fx-logger.js";
 import type { FxLot, FxDisposal, FxTraceEvent } from "../../src/types/tax.js";
 import { FxFifoEngine } from "../../src/engine/fx-fifo.js";
@@ -240,5 +242,69 @@ describe("fx-logger utilities (Capa 3)", () => {
     expect(eventsLogged[0]!.kind).toBe("acquire");
     expect(eventsLogged[1]!.kind).toBe("dispose");
     expect(consoleSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("handles broker aliases for Interactive Brokers (IBKR) and Light Year (LY)", () => {
+    // 1. Display formatting aliases
+    expect(formatBrokerAlias("Interactive Brokers")).toBe("IBKR");
+    expect(formatBrokerAlias("interactive brokers")).toBe("IBKR");
+    expect(formatBrokerAlias("IBKR")).toBe("IBKR");
+    expect(formatBrokerAlias("Lightyear")).toBe("LY");
+    expect(formatBrokerAlias("Light Year")).toBe("LY");
+    expect(formatBrokerAlias("light year")).toBe("LY");
+    expect(formatBrokerAlias("LY")).toBe("LY");
+    expect(formatBrokerAlias("Degiro")).toBe("Degiro");
+
+    // 2. Filter matching with aliases
+    brokersPerm.length = 0;
+    brokersPerm.push("IBKR");
+    expect(isBrokerPermitted("Interactive Brokers")).toBe(true);
+    expect(isBrokerPermitted("IBKR")).toBe(true);
+    expect(isBrokerPermitted("Lightyear")).toBe(false);
+
+    brokersPerm.length = 0;
+    brokersPerm.push("Interactive Brokers");
+    expect(isBrokerPermitted("IBKR")).toBe(true);
+
+    brokersPerm.length = 0;
+    brokersPerm.push("LY");
+    expect(isBrokerPermitted("Lightyear")).toBe(true);
+    expect(isBrokerPermitted("Light Year")).toBe(true);
+    expect(isBrokerPermitted("LY")).toBe(true);
+    expect(isBrokerPermitted("IBKR")).toBe(false);
+
+    brokersPerm.length = 0;
+    brokersPerm.push("Light Year");
+    expect(isBrokerPermitted("LY")).toBe(true);
+    expect(isBrokerPermitted("Lightyear")).toBe(true);
+
+    // 3. formatFxTraceEvent renders aliased names
+    const ev1: FxTraceEvent = {
+      seq: 1,
+      date: "2024-01-15",
+      kind: "acquire",
+      currency: "USD",
+      trigger: "conversion",
+      quantityFcy: "1000",
+      rate: "0.912",
+      poolBalanceFcy: "1000",
+      parkedBalanceFcy: "0",
+      brokerSource: "Interactive Brokers",
+    };
+    const ev2: FxTraceEvent = {
+      seq: 2,
+      date: "2024-01-16",
+      kind: "acquire",
+      currency: "USD",
+      trigger: "conversion",
+      quantityFcy: "1000",
+      rate: "0.912",
+      poolBalanceFcy: "2000",
+      parkedBalanceFcy: "0",
+      brokerSource: "Light Year",
+    };
+    brokersPerm.length = 0;
+    expect(formatFxTraceEvent(ev1)).toContain("IBKR");
+    expect(formatFxTraceEvent(ev2)).toContain("LY");
   });
 });

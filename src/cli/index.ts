@@ -21,7 +21,7 @@ import type { EcbRateMap } from "../types/ecb.js";
 import { formatDateDmy, positionsDateMismatch } from "../engine/dates.js";
 import { buildEcbRateMap, deriveEcbNeeds } from "../engine/ecb-orchestrator.js";
 import { buildManualRateMap, coerceManualQuotes } from "../engine/manual-rates.js";
-import { logFxTraceEvent } from "../utils/fx-logger.js";
+import { logFxTraceEvent, printFxTraceHeader, printFxDisposals } from "../utils/fx-logger.js";
 import { generateTaxReport } from "../generators/report.js";
 import {
   checkModelo720Thresholds,
@@ -293,6 +293,10 @@ program
           console.error(`  Tipos manuales crypto cargados: ${loaded}`);
         }
 
+        if (opts.fxVerbose) {
+          printFxTraceHeader();
+        }
+
         // 3. Generate tax report
         const report = generateTaxReport(merged, allRates, opts.year, {
           skipFx: opts.monodivisa,
@@ -303,6 +307,9 @@ program
           fxStockLossMode: opts.fxStockLossDestruction ? "destruction" : "carry-basis",
           onFxTraceEvent: opts.fxVerbose ? logFxTraceEvent : undefined,
         });
+        if (opts.fxVerbose && report.fxGains.disposals.length > 0) {
+          printFxDisposals(report.fxGains.disposals);
+        }
         if (opts.titulares && opts.titulares > 1) {
           console.error(`  Titulares: ${opts.titulares} (importes divididos por contribuyente)`);
         }

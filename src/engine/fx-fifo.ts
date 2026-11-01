@@ -1618,8 +1618,14 @@ export class FxFifoEngine {
 
     const profit = proc.minus(cost);
     if (profit.greaterThan(EPS)) {
-      this.pushPoolLot(event.currency, event.date, profit, saleRate, event.brokerSource);
-      this.record("profit", event, { quantityFcy: profit, rate: saleRate, note: "plusvalía en venta de acciones" });
+      const profitLot = this.pushPoolLot(event.currency, event.date, profit, saleRate, event.brokerSource);
+      this.record("profit", event, {
+        quantityFcy: profit,
+        rate: saleRate,
+        lotId: profitLot?.id,
+        lotAcquireDate: event.date,
+        note: "plusvalía en venta de acciones",
+      });
       this.accumulate("profit", event.currency, profit);
     } else if (profit.lessThan(EPS.negated())) {
       const lossQty = profit.abs();

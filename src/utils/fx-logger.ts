@@ -5,7 +5,7 @@
  * and broker filtering. Works decoupled from the core mathematical engine via FxTraceListener.
  */
 
-import type Decimal from "decimal.js";
+import Decimal from "decimal.js";
 import type { FxDisposal, FxLot, FxTraceEvent, FxTraceKind } from "../types/tax.js";
 
 export let printFxDisposalsEnabled = true;
@@ -15,23 +15,27 @@ export let printFxRemainingLotsEnabled = true;
 export interface Colores {
   z: string; // Reset
   b: string; // Bold
+  d: string; // Dim
   g: string; // Green
   y: string; // Yellow
   c: string; // Cyan
   w: string; // White
   r: string; // Red
   m: string; // Magenta
+  gray: string; // Dark Gray (Separators)
 }
 
 export const colores: Colores = {
   z: "\x1b[0m",
   b: "\x1b[1m",
+  d: "\x1b[2m",
   g: "\x1b[32m",
   y: "\x1b[33m",
   c: "\x1b[36m",
   w: "\x1b[37m",
   r: "\x1b[31m",
   m: "\x1b[35m",
+  gray: "\x1b[90m",
 };
 
 export const colorEtiq: Record<string, string> = {
@@ -45,8 +49,74 @@ export const colorEtiq: Record<string, string> = {
   FXDiscard: colores.m,
 };
 
+/**
+ * Known broker aliases for FX logging display and filtering:
+ * - "Interactive Brokers" / "ibkr" -> "IBKR"
+ * - "Lightyear" / "Light Year" / "ly" -> "LY"
+ */
+export const BROKER_ALIASES: Record<string, string> = {
+  "interactive brokers": "IBKR",
+  ibkr: "IBKR",
+  lightyear: "LY",
+  "light year": "LY",
+  ly: "LY",
+};
+
+/**
+ * Returns the short/aliased display name for a broker in FX logs.
+ * Specifically converts "Interactive Brokers" to "IBKR", and "Lightyear" / "Light Year" to "LY".
+ */
+export function formatBrokerAlias(broker?: string | null): string {
+  if (!broker) return "";
+  const key = broker.trim().toLowerCase();
+  return BROKER_ALIASES[key] ?? broker;
+}
+
 /** Filter active brokers in console output. When empty `[]`, all brokers are logged. */
 export const brokersPerm: string[] = [];
+
+/**
+ * Checks whether a broker matches the active brokersPerm filter list,
+ * taking aliases into account (e.g. filter "IBKR" matches "Interactive Brokers",
+ * filter "LY" matches "Lightyear" and vice versa).
+ */
+export function isBrokerPermitted(brokerSource?: string | null): boolean {
+  if (brokersPerm.length === 0) return true;
+  if (!brokerSource) return false;
+
+  const targetAlias = formatBrokerAlias(brokerSource).toLowerCase();
+  const targetRaw = brokerSource.trim().toLowerCase();
+
+  return brokersPerm.some((filterEntry) => {
+    const filterAlias = formatBrokerAlias(filterEntry).toLowerCase();
+    const filterRaw = filterEntry.trim().toLowerCase();
+    return (
+      filterAlias === targetAlias ||
+      filterRaw === targetRaw ||
+      filterRaw === targetAlias ||
+      filterAlias === targetRaw
+    );
+  });
+}
+
+/** Strips ANSI escape sequences to compute true visible character length for alignment. */
+export function stripAnsi(str: string): string {
+  return str.replace(/\x1b\[[0-9;]*m/g, "");
+}
+
+/** Pads end of string taking into account hidden ANSI escape sequences. */
+export function padEndVisible(str: string, targetWidth: number): string {
+  const visibleLen = stripAnsi(str).length;
+  if (visibleLen >= targetWidth) return str;
+  return str + " ".repeat(targetWidth - visibleLen);
+}
+
+/** Pads start of string taking into account hidden ANSI escape sequences. */
+export function padStartVisible(str: string, targetWidth: number): string {
+  const visibleLen = stripAnsi(str).length;
+  if (visibleLen >= targetWidth) return str;
+  return " ".repeat(targetWidth - visibleLen) + str;
+}
 
 /** Format ISO date yyyy-mm-dd to dd/mm/yy for visual brevity. */
 export function formatDateVisual(isoDate?: string | null): string {
@@ -82,33 +152,99 @@ function mapKindToTag(kind: FxTraceKind): { tag: string; color: string } {
   }
 }
 
-/** Formats an FxTraceEvent into an ANSI colored single-line message. Returns null if filtered out. */
+/** Prints a tabular header for the real-time event trace. */
+export function printFxTraceHeader(): void {
+  const sep = `${colores.gray}│${colores.z}`;
+  const hTag = padEndVisible("TIPO", 10);
+  const hLot = padEndVisible("LOTE", 8);
+  const hBroker = padEndVisible("BROKER", 10);
+  const hMotivo = padEndVisible("MOTIVO", 16);
+  const hAdq = padEndVisible("F.ADQ", 8);
+  const hTrans = padEndVisible("F.OP", 8);
+  const hCant = padStartVisible("CANTIDAD", 15);
+  const hRate = padEndVisible("TIPO CAMBIO", 13);
+  const hGain = padEndVisible("GAINEUR (RESULTADO)", 20);
+  const hBal = "SALDO POOL";
+
+  const header = `${colores.b}${hTag} ${sep} ${hLot} ${sep} ${hBroker} ${sep} ${hMotivo} ${sep} ${hAdq} ${sep} ${hTrans} ${sep} ${hCant} ${sep} ${hRate} ${sep} ${hGain} ${sep} ${hBal}${colores.z}`;
+  const border = `${colores.gray}${stripAnsi(header).replace(/[^│]/g, "─").replace(/│/g, "┼")}${colores.z}`;
+  console.log(`\n${header}\n${border}`);
+}
+
+/** Formats an FxTraceEvent into an ANSI colored, columnar aligned single-line message. */
 export function formatFxTraceEvent(ev: FxTraceEvent): string | null {
-  if (brokersPerm.length > 0 && ev.brokerSource && !brokersPerm.includes(ev.brokerSource)) {
+  if (!isBrokerPermitted(ev.brokerSource)) {
     return null;
   }
 
   const { tag, color } = mapKindToTag(ev.kind);
-  let msg = `[${color}${tag}${colores.z}] `;
+  const sep = `${colores.gray}│${colores.z}`;
 
-  if (ev.lotId) msg += `${ev.lotId} | `;
-  if (ev.brokerSource) msg += `${ev.brokerSource} | `;
-  if (ev.trigger) msg += `${colores.b}${ev.trigger.toUpperCase()}${colores.z} | `;
-  if (ev.positionKey) msg += `${ev.positionKey} | `;
-  if (ev.lotAcquireDate) msg += `FAdq:${cn(formatDateVisual(ev.lotAcquireDate))} | `;
-  msg += `FTrans:${cn(formatDateVisual(ev.date))} | `;
-  if (ev.quantityFcy) msg += `Cant: ${cn(Number(ev.quantityFcy).toFixed(2))} ${ev.currency} | `;
-  if (ev.rate !== null && ev.rate !== undefined) msg += `Rate: ${cn(Number(ev.rate).toFixed(5))} | `;
-  if (ev.costBasisEur !== undefined) msg += `CostEur: ${cn(Number(ev.costBasisEur).toFixed(2))} EUR | `;
-  if (ev.proceedsEur !== undefined) msg += `ProcEur: ${cn(Number(ev.proceedsEur).toFixed(2))} EUR | `;
-  if (ev.gainLossEur !== undefined) msg += `GainEur: ${cn(Number(ev.gainLossEur).toFixed(2))} EUR | `;
-  msg += `PoolBal: ${cn(Number(ev.poolBalanceFcy).toFixed(2))} | `;
-  if (Number(ev.parkedBalanceFcy) > 0) {
-    msg += `ParkedBal: ${cn(Number(ev.parkedBalanceFcy).toFixed(2), colores.y)} | `;
+  // 1. Tag (width 10)
+  const tagStr = `[${color}${tag}${colores.z}]`;
+  const tagPadded = padEndVisible(tagStr, 10);
+
+  // 2. Lot ID (width 8)
+  const lotStr = ev.lotId ? `${colores.b}${ev.lotId}${colores.z}` : `${colores.gray}—${colores.z}`;
+  const lotPadded = padEndVisible(lotStr, 8);
+
+  // 3. Broker with alias formatting (width 10)
+  const brokerDisplay = ev.brokerSource ? formatBrokerAlias(ev.brokerSource) : `${colores.gray}—${colores.z}`;
+  const brokerPadded = padEndVisible(brokerDisplay, 10);
+
+  // 4. Motivo / Trigger + PositionKey (width 16)
+  let motivo = ev.trigger ? ev.trigger.toUpperCase() : "—";
+  if (ev.positionKey) {
+    motivo = `${motivo} (${ev.positionKey.toUpperCase()})`;
   }
-  if (ev.note) msg += `${ev.note} | `;
+  const motivoPadded = padEndVisible(motivo, 16);
 
-  return msg.trim().replace(/\s*\|\s*$/, "");
+  // 5 & 6. Fechas (F.Adq y F.Trans / F.Op)
+  const fAdq = ev.lotAcquireDate ? formatDateVisual(ev.lotAcquireDate) : `${colores.gray}—${colores.z}`;
+  const fAdqPadded = padEndVisible(fAdq, 8);
+  const fTrans = formatDateVisual(ev.date);
+  const fTransPadded = padEndVisible(fTrans, 8);
+
+  // 7. Cantidad con signo (+ / -) y divisa (width 15, right aligned)
+  let cantFormatted = "—";
+  if (ev.quantityFcy) {
+    const qNum = Number(ev.quantityFcy);
+    const isIncome = ev.kind === "acquire" || ev.kind === "unpark" || ev.kind === "profit";
+    const sign = isIncome ? "+" : "-";
+    const qColor = isIncome ? colores.g : colores.r;
+    cantFormatted = `${qColor}${sign}${qNum.toFixed(2)} ${ev.currency}${colores.z}`;
+  }
+  const cantPadded = padStartVisible(cantFormatted, 15);
+
+  // 8. Tipo / Rate (width 13)
+  let rateFormatted = `${colores.gray}—${colores.z}`;
+  if (ev.rate !== null && ev.rate !== undefined) {
+    rateFormatted = `@ ${cn(Number(ev.rate).toFixed(5), colores.c)}`;
+  }
+  const ratePadded = padEndVisible(rateFormatted, 13);
+
+  // 9. Ganancia EUR / GainEur (width 20)
+  let gainFormatted = `${colores.gray}—${colores.z}`;
+  if (ev.gainLossEur !== undefined) {
+    const gNum = Number(ev.gainLossEur);
+    const sign = gNum > 0 ? "+" : gNum < 0 ? "-" : "";
+    const gColor = gNum > 0 ? colores.g : gNum < 0 ? colores.r : colores.w;
+    gainFormatted = `GainEur: ${gColor}${sign}${Math.abs(gNum).toFixed(2)} €${colores.z}`;
+  }
+  const gainPadded = padEndVisible(gainFormatted, 20);
+
+  // 10. Saldo Pool y Parked
+  const poolNum = Number(ev.poolBalanceFcy);
+  let balFormatted = `PoolBal: ${cn(poolNum.toFixed(2), colores.w)}`;
+  const parkedNum = Number(ev.parkedBalanceFcy);
+  if (parkedNum > 0) {
+    balFormatted += ` ${sep} Parked: ${cn(parkedNum.toFixed(2), colores.y)}`;
+  }
+
+  // 11. Nota si existe
+  const noteStr = ev.note ? ` ${sep} ${colores.d}${ev.note}${colores.z}` : "";
+
+  return `${tagPadded} ${sep} ${lotPadded} ${sep} ${brokerPadded} ${sep} ${motivoPadded} ${sep} ${fAdqPadded} ${sep} ${fTransPadded} ${sep} ${cantPadded} ${sep} ${ratePadded} ${sep} ${gainPadded} ${sep} ${balFormatted}${noteStr}`;
 }
 
 /** FxTraceListener consumer that logs formatted events to console. */
@@ -157,7 +293,7 @@ export function logO({
   copyTXT = "",
   colorNum = colores.g,
 }: LogOperacionParams): void {
-  if (brokersPerm.length > 0 && !brokersPerm.includes(brokerSource)) {
+  if (!isBrokerPermitted(brokerSource)) {
     return;
   }
 
@@ -171,7 +307,8 @@ export function logO({
   const fTransVisual = FTrans ? formatDateVisual(FTrans) : "";
 
   if (lotId) msg += `${lotId} | `;
-  if (brokerSource) msg += `${brokerSource} | `;
+  const brokerDisplay = brokerSource ? formatBrokerAlias(brokerSource) : "";
+  if (brokerDisplay) msg += `${brokerDisplay} | `;
   if (trigger) msg += `${bold}${trigger}${z} | `;
   if (symbol) msg += `${symbol.toUpperCase()} | `;
   if (fAdqVisual) msg += `FAdq:${cnLocal(fAdqVisual)} | `;
@@ -185,73 +322,151 @@ export function logO({
   console.log(msg.trim().replace(/\s*\|\s*$/, ""));
 }
 
-/** Prints table of open lots remaining in the FX FIFO pool. */
+/** Prints an aligned table of open lots remaining in the FX FIFO pool. */
 export function printFxRemainingLots(remainingFxLots: Map<string, FxLot[]>): void {
   if (!printFxRemainingLotsEnabled) return;
-  if (remainingFxLots.size > 0) {
-    console.log("\n=== FX FIFO remaining lots ===");
+  const sep = `${colores.gray}│${colores.z}`;
+  let totalLots = 0;
+  for (const lots of remainingFxLots.values()) {
+    for (const lot of lots) {
+      if (isBrokerPermitted(lot.brokerSource)) totalLots++;
+    }
+  }
+
+  if (totalLots > 0) {
+    console.log(`\n${colores.b}=== LOTES FX REMANENTES EN EL POOL (${totalLots} abiertos) ===${colores.z}`);
+    const hLot = padEndVisible("LOTE", 8);
+    const hDiv = padEndVisible("DIV", 5);
+    const hTrig = padEndVisible("ORIGEN", 14);
+    const hAdq = padEndVisible("F.ADQ", 8);
+    const hCant = padStartVisible("CANTIDAD FCY", 14);
+    const hCostUd = padStartVisible("COSTE / UD", 12);
+    const hCostEur = padStartVisible("COSTE EUR", 12);
+    const hBroker = "BROKER";
+
+    const header = `${colores.b}${hLot} ${sep} ${hDiv} ${sep} ${hTrig} ${sep} ${hAdq} ${sep} ${hCant} ${sep} ${hCostUd} ${sep} ${hCostEur} ${sep} ${hBroker}${colores.z}`;
+    const border = `${colores.gray}${stripAnsi(header).replace(/[^│]/g, "─").replace(/│/g, "┼")}${colores.z}`;
+    console.log(header);
+    console.log(border);
+
     for (const [currency, lots] of remainingFxLots.entries()) {
-      console.log(`--- ${currency} ---`);
       for (const lot of lots) {
-        console.log(
-          `${colores.g}${lot.id}${colores.z}` +
-            ` | ${(lot as { trigger?: string }).trigger ?? ""}` +
-            ` | Fadq${colores.g}=${formatDateVisual(lot.acquireDate)}${colores.z}` +
-            ` | qty=${colores.g}${lot.quantity.toFixed(2)}${colores.z}` +
-            ` | cost/Ud=${colores.g}${lot.costPerUnit.toFixed(6)}${colores.z}` +
-            ` | costInEur=${colores.g}${lot.costInEur.toFixed(2)}${colores.z}` +
-            (lot.brokerSource ? ` | broker=${lot.brokerSource}` : ""),
-        );
+        if (!isBrokerPermitted(lot.brokerSource)) continue;
+        const lotIdStr = padEndVisible(`${colores.g}${lot.id}${colores.z}`, 8);
+        const divStr = padEndVisible(currency, 5);
+        const trig = (lot as { trigger?: string }).trigger ?? "—";
+        const trigStr = padEndVisible(trig, 14);
+        const adqStr = padEndVisible(formatDateVisual(lot.acquireDate), 8);
+        const cantStr = padStartVisible(Number(lot.quantity).toFixed(2), 14);
+        const costUdStr = padStartVisible(Number(lot.costPerUnit).toFixed(6), 12);
+        const costEurStr = padStartVisible(`${Number(lot.costInEur).toFixed(2)} €`, 12);
+        const brokerStr = lot.brokerSource ? formatBrokerAlias(lot.brokerSource) : "—";
+        console.log(`${lotIdStr} ${sep} ${divStr} ${sep} ${trigStr} ${sep} ${adqStr} ${sep} ${cantStr} ${sep} ${costUdStr} ${sep} ${costEurStr} ${sep} ${brokerStr}`);
       }
     }
   } else {
-    console.log("\n=== FX FIFO remaining lots: none ===");
+    console.log(`\n${colores.b}=== LOTES FX REMANENTES EN EL POOL: Ninguno (0 lotes) ===${colores.z}`);
   }
 }
 
-/** Prints table of closed lots. */
+/** Prints an aligned table of closed lots. */
 export function printFxLotsClosed(fxClosedLots: Map<string, FxLot[]>): void {
   if (!printFxLotsClosedEnabled) return;
-  if (fxClosedLots.size > 0) {
-    console.log("\n=== FX FIFO closed lots ===");
+  const sep = `${colores.gray}│${colores.z}`;
+  let totalLots = 0;
+  for (const lots of fxClosedLots.values()) {
+    for (const lot of lots) {
+      if (isBrokerPermitted(lot.brokerSource)) totalLots++;
+    }
+  }
+
+  if (totalLots > 0) {
+    console.log(`\n${colores.b}=== LOTES FX CERRADOS (${totalLots} cerrados) ===${colores.z}`);
+    const hLot = padEndVisible("LOTE", 8);
+    const hDiv = padEndVisible("DIV", 5);
+    const hTrig = padEndVisible("ORIGEN", 14);
+    const hAdq = padEndVisible("F.ADQ", 8);
+    const hCant = padStartVisible("CANTIDAD FCY", 14);
+    const hCostUd = padStartVisible("COSTE / UD", 12);
+    const hCostEur = padStartVisible("COSTE EUR", 12);
+    const hBroker = "BROKER";
+
+    const header = `${colores.b}${hLot} ${sep} ${hDiv} ${sep} ${hTrig} ${sep} ${hAdq} ${sep} ${hCant} ${sep} ${hCostUd} ${sep} ${hCostEur} ${sep} ${hBroker}${colores.z}`;
+    const border = `${colores.gray}${stripAnsi(header).replace(/[^│]/g, "─").replace(/│/g, "┼")}${colores.z}`;
+    console.log(header);
+    console.log(border);
+
     for (const [currency, lots] of fxClosedLots.entries()) {
-      console.log(`--- ${currency} ---`);
       for (const lot of lots) {
-        console.log(
-          `lot ${colores.g}${lot.id}${colores.z}` +
-            ` | Fadq${colores.g}=${formatDateVisual(lot.acquireDate)}${colores.z}` +
-            ` | qty=${colores.g}${lot.quantity.toFixed(2)}${colores.z}` +
-            ` | cost/Ud=${colores.g}${lot.costPerUnit.toFixed(6)}${colores.z}` +
-            ` | costInEur=${colores.g}${lot.costInEur.toFixed(2)}${colores.z}` +
-            (lot.brokerSource ? ` | broker=${lot.brokerSource}` : ""),
-        );
+        if (!isBrokerPermitted(lot.brokerSource)) continue;
+        const lotIdStr = padEndVisible(`${colores.g}${lot.id}${colores.z}`, 8);
+        const divStr = padEndVisible(currency, 5);
+        const trig = (lot as { trigger?: string }).trigger ?? "—";
+        const trigStr = padEndVisible(trig, 14);
+        const adqStr = padEndVisible(formatDateVisual(lot.acquireDate), 8);
+        const cantStr = padStartVisible(Number(lot.quantity).toFixed(2), 14);
+        const costUdStr = padStartVisible(Number(lot.costPerUnit).toFixed(6), 12);
+        const costEurStr = padStartVisible(`${Number(lot.costInEur).toFixed(2)} €`, 12);
+        const brokerStr = lot.brokerSource ? formatBrokerAlias(lot.brokerSource) : "—";
+        console.log(`${lotIdStr} ${sep} ${divStr} ${sep} ${trigStr} ${sep} ${adqStr} ${sep} ${cantStr} ${sep} ${costUdStr} ${sep} ${costEurStr} ${sep} ${brokerStr}`);
       }
     }
   } else {
-    console.log("\n=== FX FIFO closed lots: none ===");
+    console.log(`\n${colores.b}=== LOTES FX CERRADOS: Ninguno (0 lotes) ===${colores.z}`);
   }
 }
 
-/** Prints all generated FX disposals. */
+/** Prints an aligned table of all generated FX disposals. */
 export function printFxDisposals(allFxDisposals: FxDisposal[]): void {
   if (!printFxDisposalsEnabled) return;
-  if (allFxDisposals.length > 0) {
-    console.log("\n=== FX FIFO all disposals ===");
-    for (const d of allFxDisposals) {
-      console.log(
-        `${colores.g}${d.lotId}${colores.z}` +
-          ` | ${d.currency}` +
-          ` | ${d.trigger}` +
-          ` | FAdq=${formatDateVisual(d.acquireDate)}` +
-          ` | FDisp=${formatDateVisual(d.disposeDate)}` +
-          ` | qty=${colores.g}${d.quantity.toFixed(2)}${colores.z}` +
-          ` | costEur=${colores.g}${d.costBasisEur.toFixed(2)}${colores.z}` +
-          ` | proceedsEur=${colores.g}${d.proceedsEur.toFixed(2)}${colores.z}` +
-          ` | gainEur=${colores.g}${d.gainLossEur.toFixed(2)}${colores.z}` +
-          (d.brokerSource ? ` | broker=${d.brokerSource}` : ""),
-      );
+  const sep = `${colores.gray}│${colores.z}`;
+  const filteredDisposals = allFxDisposals.filter((d) => isBrokerPermitted(d.brokerSource));
+
+  if (filteredDisposals.length > 0) {
+    console.log(`\n${colores.b}=== ENAJENACIONES DE DIVISA / FX DISPOSALS (${filteredDisposals.length} operaciones) ===${colores.z}`);
+    const hLot = padEndVisible("LOTE", 8);
+    const hDiv = padEndVisible("DIV", 5);
+    const hTrig = padEndVisible("MOTIVO", 14);
+    const hAdq = padEndVisible("F.ADQ", 8);
+    const hDisp = padEndVisible("F.DISP", 8);
+    const hCant = padStartVisible("CANTIDAD FCY", 14);
+    const hCost = padStartVisible("COSTE EUR", 12);
+    const hProc = padStartVisible("INGRESOS EUR", 12);
+    const hGain = padStartVisible("GANANCIA EUR", 14);
+    const hBroker = "BROKER";
+
+    const header = `${colores.b}${hLot} ${sep} ${hDiv} ${sep} ${hTrig} ${sep} ${hAdq} ${sep} ${hDisp} ${sep} ${hCant} ${sep} ${hCost} ${sep} ${hProc} ${sep} ${hGain} ${sep} ${hBroker}${colores.z}`;
+    const border = `${colores.gray}${stripAnsi(header).replace(/[^│]/g, "─").replace(/│/g, "┼")}${colores.z}`;
+    console.log(header);
+    console.log(border);
+
+    let totalGain = new Decimal(0);
+    for (const d of filteredDisposals) {
+      const gNum = Number(d.gainLossEur);
+      totalGain = totalGain.plus(d.gainLossEur);
+      const sign = gNum > 0 ? "+" : gNum < 0 ? "-" : "";
+      const gColor = gNum > 0 ? colores.g : gNum < 0 ? colores.r : colores.w;
+      const gainText = `${gColor}${sign}${Math.abs(gNum).toFixed(2)} €${colores.z}`;
+
+      const lotIdStr = padEndVisible(`${colores.g}${d.lotId}${colores.z}`, 8);
+      const divStr = padEndVisible(d.currency, 5);
+      const trigStr = padEndVisible(d.trigger ?? "—", 14);
+      const adqStr = padEndVisible(formatDateVisual(d.acquireDate), 8);
+      const dispStr = padEndVisible(formatDateVisual(d.disposeDate), 8);
+      const cantStr = padStartVisible(Number(d.quantity).toFixed(2), 14);
+      const costStr = padStartVisible(`${Number(d.costBasisEur).toFixed(2)} €`, 12);
+      const procStr = padStartVisible(`${Number(d.proceedsEur).toFixed(2)} €`, 12);
+      const gainStr = padStartVisible(gainText, 14);
+      const brokerStr = d.brokerSource ? formatBrokerAlias(d.brokerSource) : "—";
+
+      console.log(`${lotIdStr} ${sep} ${divStr} ${sep} ${trigStr} ${sep} ${adqStr} ${sep} ${dispStr} ${sep} ${cantStr} ${sep} ${costStr} ${sep} ${procStr} ${sep} ${gainStr} ${sep} ${brokerStr}`);
     }
+    const totalGNum = totalGain.toNumber();
+    const totSign = totalGNum > 0 ? "+" : totalGNum < 0 ? "-" : "";
+    const totColor = totalGNum > 0 ? colores.g : totalGNum < 0 ? colores.r : colores.w;
+    console.log(`${colores.gray}${"─".repeat(stripAnsi(header).length)}${colores.z}`);
+    console.log(`TOTAL RESULTADO NETO FX: ${totColor}${colores.b}${totSign}${Math.abs(totalGNum).toFixed(2)} EUR${colores.z}\n`);
   } else {
-    console.log("\n=== FX FIFO all disposals: none ===");
+    console.log(`\n${colores.b}=== ENAJENACIONES DE DIVISA / FX DISPOSALS: Ninguna (0) ===${colores.z}`);
   }
 }
