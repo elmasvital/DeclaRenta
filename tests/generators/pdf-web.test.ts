@@ -531,7 +531,7 @@ describe("generatePdfWebReport footer", () => {
     measure.setFontSize(6.5);
     for (const m of lines) {
       const x = Number(m[1]);
-      const right = x + measure.getTextWidth(m[2]!);
+      const right = x + measure.getTextWidth(m[2]!.replace(/\x97/g, "—"));
       expect(x).toBeGreaterThanOrEqual(marginPt);
       expect(right).toBeLessThanOrEqual(pageW - marginPt);
       // Centred: as much room on the left as on the right.
