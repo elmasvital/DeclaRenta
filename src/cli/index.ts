@@ -27,6 +27,7 @@ import {
   printFxDisposals,
   printFxLotsOverview,
   resetFxLotTracker,
+  trackFxLotEvent,
 } from "../utils/fx-logger.js";
 import { generateTaxReport } from "../generators/report.js";
 import {
@@ -234,6 +235,10 @@ program
   )
   .option(
     "--fx-verbose",
+  )
+  .option(
+    "--fx-lots",
+    "Muestra en consola el listado de lotes FX (abiertos/cerrados, cantidad restante, original y aparcada)",
     "Muestra en consola las operaciones y movimientos FX coloreados en tiempo real (Capa 3)",
   )
   .action(
@@ -251,6 +256,7 @@ program
       fxTrace?: string | boolean;
       fxTraceFormat?: string;
       fxVerbose?: boolean;
+      fxLots?: boolean;
       fxStockLossDestruction?: boolean;
     }) => {
       try {
@@ -299,9 +305,11 @@ program
           console.error(`  Tipos manuales crypto cargados: ${loaded}`);
         }
 
-        if (opts.fxVerbose) {
+        if (opts.fxVerbose || opts.fxLots) {
           resetFxLotTracker();
-          printFxTraceHeader();
+          if (opts.fxVerbose) {
+            printFxTraceHeader();
+          }
         }
 
         // 3. Generate tax report
@@ -312,12 +320,12 @@ program
           manualRates,
           fxTrace: opts.fxTrace !== undefined && opts.fxTrace !== false,
           fxStockLossMode: opts.fxStockLossDestruction ? "destruction" : "carry-basis",
-          onFxTraceEvent: opts.fxVerbose ? logFxTraceEvent : undefined,
+          onFxTraceEvent: opts.fxVerbose ? logFxTraceEvent : opts.fxLots ? trackFxLotEvent : undefined,
         });
         if (opts.fxVerbose && report.fxGains.disposals.length > 0) {
           printFxDisposals(report.fxGains.disposals);
         }
-        if (opts.fxVerbose) {
+        if (opts.fxVerbose || opts.fxLots) {
           printFxLotsOverview();
         }
         if (opts.titulares && opts.titulares > 1) {

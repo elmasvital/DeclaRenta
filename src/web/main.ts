@@ -17,7 +17,13 @@ import { csvDownload } from "./csv-download.js";
 import { formatReportSettings, reportSettingsDiffer } from "../generators/report-settings.js";
 import { showBrokerColumns } from "../generators/broker-columns.js";
 import { serializeFxTrace } from "../generators/fx-trace.js";
-import { logFxTraceEvent, printFxDisposals } from "../utils/fx-logger.js";
+import {
+  logFxTraceEvent,
+  printFxDisposals,
+  printFxLotsOverview,
+  resetFxLotTracker,
+  printFxTraceHeader,
+} from "../utils/fx-logger.js";
 import { normalizeDate } from "../engine/dates.js";
 import { openDisclaimer } from "./disclaimer.js";
 import {
@@ -858,6 +864,11 @@ async function processFiles(): Promise<void> {
     await new Promise<void>((r) => setTimeout(r, 0));
     if (isStale()) return; // superseded during the paint yield — discard this run
 
+    if (profileForReport.fxVerbose) {
+      resetFxLotTracker();
+      printFxTraceHeader();
+    }
+
     const report = generateTaxReport(merged, allRates, year, {
       skipFx: profileForReport.monodivisa,
       trackAutoConvert: profileForReport.trackAutoConvert,
@@ -872,6 +883,9 @@ async function processFiles(): Promise<void> {
     });
     if (profileForReport.fxVerbose && report.fxGains.disposals.length > 0) {
       printFxDisposals(report.fxGains.disposals);
+    }
+    if (profileForReport.fxVerbose) {
+      printFxLotsOverview();
     }
     currentReport = report;
     currentBrokers = detectedBrokers;
