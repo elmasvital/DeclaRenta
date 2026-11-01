@@ -169,8 +169,7 @@ langSelect.addEventListener("change", () => {
 document.addEventListener("profilechange", (e) => {
   if (!currentReport || !mergedStatement || !lastRunSettings) return;
   const next = settingsFromProfile((e as CustomEvent<FiscalProfile>).detail);
-  const verboseChanged = Boolean(lastRunSettings.fxVerbose) !== Boolean(next.fxVerbose);
-  if (reportSettingsDiffer(lastRunSettings, next) || verboseChanged) rerunWithOverlay();
+  if (reportSettingsDiffer(lastRunSettings, next)) rerunWithOverlay();
 });
 
 /**
@@ -288,13 +287,7 @@ let activeYear: number | null = null;
 let lastRunSettings: ReportSettings | null = null;
 
 function settingsFromProfile(p: FiscalProfile): ReportSettings {
-  return {
-    monodivisa: p.monodivisa,
-    trackAutoConvert: p.trackAutoConvert,
-    titulares: p.titulares,
-    fxStockLossDestruction: p.fxStockLossDestruction,
-    fxVerbose: p.fxVerbose,
-  };
+  return { monodivisa: p.monodivisa, trackAutoConvert: p.trackAutoConvert, titulares: p.titulares, fxStockLossDestruction: p.fxStockLossDestruction };
 }
 /**
  * The year of the results currently rendered on the Results step, or null when
