@@ -21,7 +21,7 @@ import type {
 } from "../types/tax.js";
 import type { EcbRateMap } from "../types/ecb.js";
 import { FifoEngine } from "../engine/fifo.js";
-import { FxFifoEngine } from "../engine/fx-fifo.js";
+import { FxFifoEngine, type FxTraceListener } from "../engine/fx-fifo.js";
 import { detectWashSales } from "../engine/wash-sale.js";
 import { calculateDividends } from "../engine/dividends.js";
 import { collapseCorrections } from "../engine/cash-corrections.js";
@@ -366,6 +366,8 @@ export interface ReportOptions {
    * "destruction": fork model where stock buys do not park, and sales with FCY loss consume FX lots without tax disposals.
    */
   fxStockLossMode?: FxStockLossMode;
+  /** Optional callback for FX movement trace events (e.g. CLI verbose output). */
+  onFxTraceEvent?: FxTraceListener;
 
   /**
    * User-supplied opening lots for positions transferred from another broker.

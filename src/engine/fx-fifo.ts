@@ -113,8 +113,11 @@ export interface FxEvent {
 }
 
 
+export type FxTraceListener = (event: FxTraceEvent) => void;
+
 export interface FxFifoEngineOptions {
   stockLossMode?: FxStockLossMode;
+  onTraceEvent?: FxTraceListener;
 }
 
 export class FxFifoEngine {
@@ -133,9 +136,20 @@ export class FxFifoEngine {
   private fxMissing: Map<string, { count: number; totalQty: Decimal }> = new Map();
 
   private readonly stockLossMode: FxStockLossMode;
+  private onTraceEvent?: FxTraceListener;
 
   constructor(options?: FxFifoEngineOptions) {
     this.stockLossMode = options?.stockLossMode ?? "carry-basis";
+    this.onTraceEvent = options?.onTraceEvent;
+    if (this.onTraceEvent) {
+      this.traceEnabled = true;
+    }
+  }
+
+  /** Registers a listener for movement trace events. Enables tracing automatically. */
+  setOnTraceEvent(listener: FxTraceListener): void {
+    this.onTraceEvent = listener;
+    this.traceEnabled = true;
   }
 
   getStockLossMode(): FxStockLossMode {
@@ -260,7 +274,7 @@ export class FxFifoEngine {
     },
   ): void {
     if (!this.traceEnabled) return;
-    this.trace.push({
+    const entry: FxTraceEvent = {
       seq: ++this.traceSeq,
       date: event.date,
       kind,
@@ -278,7 +292,11 @@ export class FxFifoEngine {
       ...(fields.lotAcquireDate !== undefined ? { lotAcquireDate: fields.lotAcquireDate } : {}),
       ...(fields.note !== undefined ? { note: fields.note } : {}),
       ...(event.brokerSource !== undefined ? { brokerSource: event.brokerSource } : {}),
-    });
+    };
+    this.trace.push(entry);
+    if (this.onTraceEvent) {
+      this.onTraceEvent(entry);
+    }
   }
 
   /**

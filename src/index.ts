@@ -57,6 +57,19 @@ export { validateModelo720Records } from "./generators/modelo720-validator.js";
 export { serializeFxTrace } from "./generators/fx-trace.js";
 export type { FxTraceFormat } from "./generators/fx-trace.js";
 
+// FX Logging utilities (Capa 3)
+export {
+  colores,
+  colorEtiq,
+  brokersPerm,
+  formatFxTraceEvent,
+  logFxTraceEvent,
+  logO,
+  printFxRemainingLots,
+  printFxLotsClosed,
+  printFxDisposals,
+} from "./utils/fx-logger.js";
+
 // i18n
 export { t, setLocale, getCurrentLocale, detectLocale, initLocale, getLocaleNames } from "./i18n/index.js";
 export type { Locale, TranslationKey } from "./i18n/index.js";

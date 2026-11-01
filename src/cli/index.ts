@@ -21,6 +21,7 @@ import type { EcbRateMap } from "../types/ecb.js";
 import { formatDateDmy, positionsDateMismatch } from "../engine/dates.js";
 import { buildEcbRateMap, deriveEcbNeeds } from "../engine/ecb-orchestrator.js";
 import { buildManualRateMap, coerceManualQuotes } from "../engine/manual-rates.js";
+import { logFxTraceEvent } from "../utils/fx-logger.js";
 import { generateTaxReport } from "../generators/report.js";
 import {
   checkModelo720Thresholds,
@@ -225,6 +226,10 @@ program
     "--fx-stock-loss-destruction",
     "FIFO global de divisa sin aparcamiento en acciones y destrucción de divisa en minusvalías sin venta fiscal (modo fork)",
   )
+  .option(
+    "--fx-verbose",
+    "Muestra en consola las operaciones y movimientos FX coloreados en tiempo real (Capa 3)",
+  )
   .action(
     async (opts: {
       input: string[];
@@ -239,6 +244,7 @@ program
       cryptoRates?: string;
       fxTrace?: string | boolean;
       fxTraceFormat?: string;
+      fxVerbose?: boolean;
       fxStockLossDestruction?: boolean;
     }) => {
       try {
@@ -295,6 +301,7 @@ program
           manualRates,
           fxTrace: opts.fxTrace !== undefined && opts.fxTrace !== false,
           fxStockLossMode: opts.fxStockLossDestruction ? "destruction" : "carry-basis",
+          onFxTraceEvent: opts.fxVerbose ? logFxTraceEvent : undefined,
         });
         if (opts.titulares && opts.titulares > 1) {
           console.error(`  Titulares: ${opts.titulares} (importes divididos por contribuyente)`);
