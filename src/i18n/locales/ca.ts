@@ -245,9 +245,9 @@ const ca: TranslationKeys = {
   "profile.track_autoconvert_label": "Processar les autoconversions del bróker (AFx/FXCONV)",
   "profile.track_autoconvert_detail":
     "Activat per defecte. Interactive Brokers no reconverteix a euros en vendre una acció, així que el saldo en divisa és real i convertir-lo després genera un guany o pèrdua patrimonial (art. 33.1 LIRPF). Desactiva-ho només si el teu bróker fa un round-trip complet EUR↔divisa i vols ignorar l'efecte de la divisa.",
-  "profile.fx_stock_loss_destruction_label": "Destruir divisa en minusvalies d'accions (sense venda fiscal)",
+  "profile.fx_stock_loss_destruction_label": "FIFO global de divisa (sense aparcament en accions)",
   "profile.fx_stock_loss_destruction_detail":
-    "En vendre accions en divisa estrangera amb pèrdua, consumeix els lots de divisa del saldo sense generar vendes fictícies de divisa en Renda (mode fork).",
+    "Aplica FIFO estricte en conversions a euros sobre tot el saldo en divisa sense immobilitzar-lo en accions, i descompta les minusvalies borsàries sense generar venda fiscal de moneda.",
   "profile.titulares_label": "Nombre de titulars:",
   "profile.titulares_detail":
     "Si el compte té diversos titulars (p. ex. compte conjunt o de guanys), DeclaRenta divideix tots els imports a parts iguals per mostrar la part que correspon a cada contribuent (Art. 11.3 LIRPF). Cada titular presenta la seva declaració individual per la seva part.",

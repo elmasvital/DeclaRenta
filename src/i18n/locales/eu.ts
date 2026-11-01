@@ -246,9 +246,9 @@ const eu: TranslationKeys = {
   "profile.track_autoconvert_label": "Prozesatu artekariaren auto-bihurketak (AFx/FXCONV)",
   "profile.track_autoconvert_detail":
     "Lehenetsita aktibatuta. Interactive Brokersek ez du eurotara berriz bihurtzen akzio bat saltzean, beraz dibisa-saldoa erreala da eta gero bihurtzeak ondare-irabazi edo -galera sortzen du (LIRPF 33.1 art.). Desaktibatu soilik zure artekariak EUR↔dibisa round-trip osoa egiten badu eta dibisaren eragina alde batera utzi nahi baduzu.",
-  "profile.fx_stock_loss_destruction_label": "Suntsitu moneta akzio-galeretan (zerga-saltzerik gabe)",
+  "profile.fx_stock_loss_destruction_label": "Monetaren FIFO globala (akzioetan aparkatu gabe)",
   "profile.fx_stock_loss_destruction_detail":
-    "Atzerriko monetan akzioak galerarekin saltzean, saldoaren loteak kontsumitzen ditu Errentan fikziozko dibisa-salmentarik sortu gabe (fork modua).",
+    "FIFO zorrotza aplikatzen du euroetarako bihurketetan moneta-saldo guztian akzioetan blokeatu gabe, eta akzio-galerak deskontatzen ditu moneta-zerga saltzerik sortu gabe.",
   "profile.titulares_label": "Titular kopurua:",
   "profile.titulares_detail":
     "Kontuak hainbat titular baditu (adib. kontu bateratua edo irabazpidezkoa), DeclaRentak zenbateko guztiak zati berdinetan banatzen ditu zergadun bakoitzari dagokion partea erakusteko (LIRPF 11.3 art.). Titular bakoitzak bere aitorpen indibiduala aurkezten du bere partearengatik.",

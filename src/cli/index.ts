@@ -231,7 +231,7 @@ program
   .addOption(new Option("--fx-trace-format <format>", "Formato de la traza FX").choices(["jsonl", "csv"]).default("jsonl"))
   .option(
     "--fx-stock-loss-destruction",
-    "Tratar las pérdidas en venta de acciones en divisa como destrucción de divisa sin generar hechos imponibles en Renta (modo fork)",
+    "FIFO global de divisa sin aparcamiento en acciones y destrucción de divisa en minusvalías sin venta fiscal (modo fork)",
   )
   .action(
     async (opts: {
