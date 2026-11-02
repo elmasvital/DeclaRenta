@@ -1529,7 +1529,7 @@ export class FxFifoEngine {
           // Re-add the principal at its ORIGINAL acquisition date (carried through
           // the park), so the pool stays FIFO-ordered by genuine age (issue #230).
           // An uncovered slice (no tracked origin) re-adds at the sale date.
-          reAddDate = p.acquireDate ?? event.date;
+          const reAddDate = p.acquireDate ?? event.date;
           // Same for the broker: a carried slice keeps the broker its dollars
           // came from; an uncovered one is sale proceeds, so the sale's broker.
           const reAddBroker = p.rate === null ? event.brokerSource : p.brokerSource;

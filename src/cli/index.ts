@@ -235,11 +235,13 @@ program
   )
   .option(
     "--fx-verbose",
+    "Muestra en consola las operaciones y movimientos FX coloreados en tiempo real (Capa 3)",
+
   )
   .option(
     "--fx-lots",
     "Muestra en consola el listado de lotes FX (abiertos/cerrados, cantidad restante, original y aparcada)",
-    "Muestra en consola las operaciones y movimientos FX coloreados en tiempo real (Capa 3)",
+
   )
   .action(
     async (opts: {
