@@ -74,6 +74,10 @@ export {
   trackFxLotEvent,
   resetFxLotTracker,
   getTrackedFxLots,
+  registerSecurityInfo,
+  resetSecurityDescriptions,
+  getSecurityDescription,
+  type SecurityMeta,
   type FxLotStatus,
 } from "./utils/fx-logger.js";
 

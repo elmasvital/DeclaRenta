@@ -11,6 +11,10 @@ import {
   printFxAllLots,
   trackFxLotEvent,
   resetFxLotTracker,
+  registerSecurityInfo,
+  resetSecurityDescriptions,
+  getSecurityDescription,
+  stripAnsi,
   type FxLotStatus,
   brokersPerm,
   colores,
@@ -26,11 +30,13 @@ describe("fx-logger utilities (Capa 3)", () => {
   beforeEach(() => {
     consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     brokersPerm.length = 0; // Clear allowed brokers filter
+    resetSecurityDescriptions();
   });
 
   afterEach(() => {
     consoleSpy.mockRestore();
     brokersPerm.length = 0;
+    resetSecurityDescriptions();
   });
 
   it("formats acquire trace event with green FXAdd tag", () => {
@@ -100,6 +106,122 @@ describe("fx-logger utilities (Capa 3)", () => {
     const formatted = formatFxTraceEvent(ev);
     expect(formatted).toContain("FXLoss");
     expect(formatted).toContain("minusvalía bursátil");
+  });
+
+  it("formats stock_sale keeping MOTIVO aligned without ISIN and placing ISIN at the end", () => {
+    const ev: FxTraceEvent = {
+      seq: 4,
+      date: "2025-04-10",
+      kind: "discard",
+      currency: "USD",
+      trigger: "stock_sale",
+      quantityFcy: "17.08",
+      rate: "0.97480",
+      poolBalanceFcy: "24822.26",
+      parkedBalanceFcy: "0",
+      positionKey: "US4581401001",
+      lotId: "FX-1",
+      lotAcquireDate: "2025-01-02",
+      brokerSource: "LY",
+      note: "minusvalía bursátil › divisa destruida sin hecho imponible",
+    };
+
+    const formatted = formatFxTraceEvent(ev);
+    expect(formatted).not.toBeNull();
+    // MOTIVO column must not contain positionKey
+    expect(formatted).not.toContain("STOCK_SALE (US4581401001)");
+    expect(formatted).toContain("STOCK_SALE      ");
+    // Position key must appear at the end
+    expect(formatted).toContain("US4581401001");
+    expect(formatted).toContain("minusvalía bursátil");
+  });
+
+  it("formats trace event with registered security description and ticker at the end", () => {
+    registerSecurityInfo([
+      {
+        isin: "US4581401001",
+        symbol: "INTC",
+        description: "INTEL CORP",
+      },
+    ]);
+
+    const ev: FxTraceEvent = {
+      seq: 5,
+      date: "2025-04-10",
+      kind: "profit",
+      currency: "USD",
+      trigger: "stock_sale",
+      quantityFcy: "25.31",
+      rate: "0.90236",
+      gainLossEur: "2.43",
+      poolBalanceFcy: "24847.56",
+      parkedBalanceFcy: "0",
+      positionKey: "US4581401001",
+      lotId: "FX-25",
+      lotAcquireDate: "2025-04-10",
+      brokerSource: "LY",
+      note: "plusvalía en venta de acciones",
+    };
+
+    const formatted = formatFxTraceEvent(ev);
+    expect(formatted).not.toBeNull();
+    const plain = stripAnsi(formatted!);
+    expect(plain).toContain("STOCK_SALE");
+    expect(plain).toContain("US4581401001 (INTC · INTEL CORP)");
+    expect(plain).toContain("plusvalía en venta de acciones");
+  });
+
+  it("handles security lookup by symbol and avoids duplicate when symbol equals description", () => {
+    registerSecurityInfo([
+      { symbol: "AAPL", description: "APPLE INC" },
+      { symbol: "XYZ", description: "XYZ" },
+    ]);
+
+    expect(getSecurityDescription("AAPL")).toBe("APPLE INC");
+    expect(getSecurityDescription("XYZ")).toBeUndefined();
+
+    const evAapl: FxTraceEvent = {
+      seq: 6,
+      date: "2025-04-10",
+      kind: "park",
+      currency: "USD",
+      trigger: "stock_purchase",
+      quantityFcy: "100",
+      poolBalanceFcy: "1000",
+      parkedBalanceFcy: "100",
+      positionKey: "AAPL",
+      brokerSource: "IBKR",
+    };
+    const plainAapl = stripAnsi(formatFxTraceEvent(evAapl)!);
+    expect(plainAapl).toContain("AAPL (APPLE INC)");
+
+    const evXyz: FxTraceEvent = {
+      seq: 7,
+      date: "2025-04-10",
+      kind: "park",
+      currency: "USD",
+      trigger: "stock_purchase",
+      quantityFcy: "50",
+      poolBalanceFcy: "950",
+      parkedBalanceFcy: "150",
+      positionKey: "XYZ",
+      brokerSource: "IBKR",
+    };
+    const plainXyz = stripAnsi(formatFxTraceEvent(evXyz)!);
+    expect(plainXyz).toContain("XYZ");
+    expect(plainXyz).not.toContain("XYZ (XYZ)");
+  });
+
+  it("registers security info from statement object with trades, securitiesInfo, and openPositions", () => {
+    registerSecurityInfo({
+      trades: [{ isin: "US0378331005", symbol: "AAPL", description: "APPLE INC" }],
+      securitiesInfo: [{ isin: "IE00BK5BQT80", symbol: "VWCE", description: "VANGUARD FTSE ALL-WORLD" }],
+      openPositions: [{ isin: "US5949181045", symbol: "MSFT", description: "MICROSOFT CORP" }],
+    });
+
+    expect(getSecurityDescription("US0378331005")).toBe("AAPL · APPLE INC");
+    expect(getSecurityDescription("IE00BK5BQT80")).toBe("VWCE · VANGUARD FTSE ALL-WORLD");
+    expect(getSecurityDescription("US5949181045")).toBe("MSFT · MICROSOFT CORP");
   });
 
   it("filters events by brokersPerm", () => {

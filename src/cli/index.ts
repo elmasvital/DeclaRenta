@@ -28,6 +28,8 @@ import {
   printFxLotsOverview,
   resetFxLotTracker,
   trackFxLotEvent,
+  registerSecurityInfo,
+  resetSecurityDescriptions,
 } from "../utils/fx-logger.js";
 import { generateTaxReport } from "../generators/report.js";
 import {
@@ -309,6 +311,8 @@ program
 
         if (opts.fxVerbose || opts.fxLots) {
           resetFxLotTracker();
+          resetSecurityDescriptions();
+          registerSecurityInfo(merged);
           if (opts.fxVerbose) {
             printFxTraceHeader();
           }

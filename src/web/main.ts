@@ -23,6 +23,8 @@ import {
   printFxLotsOverview,
   resetFxLotTracker,
   printFxTraceHeader,
+  registerSecurityInfo,
+  resetSecurityDescriptions,
 } from "../utils/fx-logger.js";
 import { normalizeDate } from "../engine/dates.js";
 import { openDisclaimer } from "./disclaimer.js";
@@ -866,6 +868,8 @@ async function processFiles(): Promise<void> {
 
     if (profileForReport.fxVerbose) {
       resetFxLotTracker();
+      resetSecurityDescriptions();
+      registerSecurityInfo(merged);
       printFxTraceHeader();
     }
 

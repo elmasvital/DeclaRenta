@@ -63,6 +63,95 @@ export const BROKER_ALIASES: Record<string, string> = {
   ly: "LY",
 };
 
+/** Metadata for security identification (symbol and description). */
+export interface SecurityMeta {
+  symbol?: string;
+  description?: string;
+}
+
+const securityRegistry = new Map<string, SecurityMeta>();
+
+/**
+ * Registers asset descriptions and symbols by ISIN or ticker symbol for visual display in FX trace logs.
+ * Accepts an array/iterable of items, or a container like FlexStatement ({ trades, securitiesInfo, openPositions }).
+ */
+export function registerSecurityInfo(
+  source:
+    | Iterable<{ isin?: string; symbol?: string; description?: string }>
+    | {
+        trades?: Iterable<{ isin?: string; symbol?: string; description?: string }>;
+        securitiesInfo?: Iterable<{ isin?: string; symbol?: string; description?: string }>;
+        openPositions?: Iterable<{ isin?: string; symbol?: string; description?: string }>;
+      }
+): void {
+  if (!source) return;
+
+  const registerItem = (item: { isin?: string; symbol?: string; description?: string }) => {
+    const symbol = item.symbol?.trim();
+    const description = item.description?.trim();
+    const isin = item.isin?.trim();
+
+    if (isin) {
+      const existing = securityRegistry.get(isin.toUpperCase());
+      securityRegistry.set(isin.toUpperCase(), {
+        symbol: symbol || existing?.symbol,
+        description: description || existing?.description,
+      });
+    }
+    if (symbol) {
+      const existing = securityRegistry.get(symbol.toUpperCase());
+      securityRegistry.set(symbol.toUpperCase(), {
+        symbol: symbol,
+        description: description || existing?.description,
+      });
+    }
+  };
+
+  if (Symbol.iterator in Object(source)) {
+    for (const item of source as Iterable<{ isin?: string; symbol?: string; description?: string }>) {
+      registerItem(item);
+    }
+  } else {
+    const s = source as {
+      trades?: Iterable<{ isin?: string; symbol?: string; description?: string }>;
+      securitiesInfo?: Iterable<{ isin?: string; symbol?: string; description?: string }>;
+      openPositions?: Iterable<{ isin?: string; symbol?: string; description?: string }>;
+    };
+    if (s.trades) for (const item of s.trades) registerItem(item);
+    if (s.securitiesInfo) for (const item of s.securitiesInfo) registerItem(item);
+    if (s.openPositions) for (const item of s.openPositions) registerItem(item);
+  }
+}
+
+/** Clears registered security descriptions. */
+export function resetSecurityDescriptions(): void {
+  securityRegistry.clear();
+}
+
+/**
+ * Returns formatted security info (e.g. "INTC · INTEL CORP" or "INTEL CORP") for an ISIN or symbol key.
+ */
+export function getSecurityDescription(key?: string | null): string | undefined {
+  if (!key) return undefined;
+  const meta = securityRegistry.get(key.trim().toUpperCase());
+  if (!meta) return undefined;
+
+  const parts: string[] = [];
+  const keyUpper = key.trim().toUpperCase();
+  if (meta.symbol && meta.symbol.toUpperCase() !== keyUpper) {
+    parts.push(meta.symbol.toUpperCase());
+  }
+  if (meta.description) {
+    const descUpper = meta.description.toUpperCase();
+    if (descUpper !== keyUpper && (!meta.symbol || descUpper !== meta.symbol.toUpperCase())) {
+      parts.push(meta.description);
+    }
+  }
+
+  if (parts.length === 0) return undefined;
+  return parts.join(" · ");
+}
+
 /**
  * Returns the short/aliased display name for a broker in FX logs.
  * Specifically converts "Interactive Brokers" to "IBKR", and "Lightyear" / "Light Year" to "LY".
@@ -193,11 +282,8 @@ export function formatFxTraceEvent(ev: FxTraceEvent): string | null {
   const brokerDisplay = ev.brokerSource ? formatBrokerAlias(ev.brokerSource) : `${colores.gray}—${colores.z}`;
   const brokerPadded = padEndVisible(brokerDisplay, 10);
 
-  // 4. Motivo / Trigger + PositionKey (width 16)
-  let motivo = ev.trigger ? ev.trigger.toUpperCase() : "—";
-  if (ev.positionKey) {
-    motivo = `${motivo} (${ev.positionKey.toUpperCase()})`;
-  }
+  // 4. Motivo / Trigger (width 16)
+  const motivo = ev.trigger ? ev.trigger.toUpperCase() : "—";
   const motivoPadded = padEndVisible(motivo, 16);
 
   // 5 & 6. Fechas (F.Adq y F.Trans / F.Op)
@@ -242,10 +328,20 @@ export function formatFxTraceEvent(ev: FxTraceEvent): string | null {
     balFormatted += ` ${sep} Parked: ${cn(parkedNum.toFixed(2), colores.y)}`;
   }
 
-  // 11. Nota si existe
+  // 11. Posición (ISIN / símbolo) y descripción si existe
+  let posStr = "";
+  if (ev.positionKey) {
+    const desc = getSecurityDescription(ev.positionKey);
+    const posDisplay = desc
+      ? `${colores.c}${ev.positionKey}${colores.z} ${colores.d}(${desc})${colores.z}`
+      : `${colores.c}${ev.positionKey}${colores.z}`;
+    posStr = ` ${sep} ${posDisplay}`;
+  }
+
+  // 12. Nota si existe
   const noteStr = ev.note ? ` ${sep} ${colores.d}${ev.note}${colores.z}` : "";
 
-  return `${tagPadded} ${sep} ${lotPadded} ${sep} ${brokerPadded} ${sep} ${motivoPadded} ${sep} ${fAdqPadded} ${sep} ${fTransPadded} ${sep} ${cantPadded} ${sep} ${ratePadded} ${sep} ${gainPadded} ${sep} ${balFormatted}${noteStr}`;
+  return `${tagPadded} ${sep} ${lotPadded} ${sep} ${brokerPadded} ${sep} ${motivoPadded} ${sep} ${fAdqPadded} ${sep} ${fTransPadded} ${sep} ${cantPadded} ${sep} ${ratePadded} ${sep} ${gainPadded} ${sep} ${balFormatted}${posStr}${noteStr}`;
 }
 
 /** FxTraceListener consumer that logs formatted events to console. */
