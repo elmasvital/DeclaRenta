@@ -249,6 +249,9 @@ const en: TranslationKeys = {
   "profile.track_autoconvert_label": "Process broker auto-conversions (AFx/FXCONV)",
   "profile.track_autoconvert_detail":
     "On by default. Interactive Brokers does not convert back to euros when you sell a stock, so the currency balance is real and converting it later produces a capital gain or loss (Art. 33.1 LIRPF). Turn it off only if your broker does a full EUR↔currency round-trip and you want to ignore the currency effect.",
+  "profile.fx_wash_sale_label": "Defer FX losses on repurchase within 1 year (DGT V1613-25)",
+  "profile.fx_wash_sale_detail":
+    "Applies the anti-churning rule of Art. 33.5.e LIRPF per binding ruling V1613-25. Foreign currency capital losses are not deductible if the same currency is reacquired within one year; they integrate when the repurchased currency is disposed of.",
   "profile.titulares_label": "Number of account holders:",
   "profile.titulares_detail":
     "If the account has several holders (e.g. a joint or community-property account), DeclaRenta divides every amount equally to show each taxpayer's share (Art. 11.3 LIRPF). Each holder files their own individual return for their share.",

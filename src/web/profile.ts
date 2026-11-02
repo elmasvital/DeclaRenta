@@ -21,6 +21,8 @@ export interface FiscalProfile {
   monodivisa: boolean;
   /** Procesar autoconversiones del bróker (AFx/FXCONV). Default true (rigor máximo). false = opt-out (se ignoran). */
   trackAutoConvert: boolean;
+  /** Diferir pérdidas en divisas por recompra en 1 año (DGT V1613-25). Default false. */
+  fxWashSale: boolean;
   /** Número de titulares de la cuenta. 1 = individual. >1 reparte los importes a partes iguales por contribuyente (Art. 11.3 LIRPF). */
   titulares: number;
 }
@@ -41,6 +43,7 @@ const DEFAULT_PROFILE: FiscalProfile = {
   year: new Date().getFullYear() - 1,
   monodivisa: false,
   trackAutoConvert: true,
+  fxWashSale: false,
   titulares: 1,
 };
 
@@ -61,6 +64,7 @@ export function getProfile(): FiscalProfile {
       if (typeof parsed.year === "number" && Number.isInteger(parsed.year)) profile.year = parsed.year;
       if (typeof parsed.monodivisa === "boolean") profile.monodivisa = parsed.monodivisa;
       if (typeof parsed.trackAutoConvert === "boolean") profile.trackAutoConvert = parsed.trackAutoConvert;
+      if (typeof parsed.fxWashSale === "boolean") profile.fxWashSale = parsed.fxWashSale;
       if (typeof parsed.titulares === "number" && Number.isInteger(parsed.titulares) && parsed.titulares >= 1) {
         profile.titulares = parsed.titulares;
       }
@@ -209,6 +213,13 @@ export function initProfile(): void {
           </label>
           <p class="monodivisa-detail" id="track-autoconvert-detail">${t("profile.track_autoconvert_detail")}</p>
         </div>
+        <div class="monodivisa-callout">
+          <label class="monodivisa-toggle">
+            <input type="checkbox" id="profile-fx-wash-sale" aria-describedby="fx-wash-sale-detail" ${profile.fxWashSale ? "checked" : ""} />
+            <span class="monodivisa-label"><strong>${t("profile.fx_wash_sale_label")}</strong></span>
+          </label>
+          <p class="monodivisa-detail" id="fx-wash-sale-detail">${t("profile.fx_wash_sale_detail")}</p>
+        </div>
       </fieldset>
 
       <div class="profile-actions">
@@ -229,6 +240,7 @@ export function initProfile(): void {
       year: parseInt((document.getElementById("profile-year") as HTMLSelectElement).value, 10),
       monodivisa: (document.getElementById("profile-monodivisa") as HTMLInputElement).checked,
       trackAutoConvert: (document.getElementById("profile-track-autoconvert") as HTMLInputElement).checked,
+      fxWashSale: (document.getElementById("profile-fx-wash-sale") as HTMLInputElement).checked,
       titulares: parseInt((document.getElementById("profile-titulares") as HTMLSelectElement).value, 10) || 1,
     };
   }

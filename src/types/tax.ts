@@ -299,6 +299,8 @@ export interface ReportSettings {
   trackAutoConvert: boolean;
   /** Number of account holders the amounts are split between. */
   titulares: number;
+  /** Strict FX wash-sale anti-churning mode per DGT V1613-25 (Art. 33.5.e LIRPF). */
+  fxWashSale?: boolean;
 }
 
 /** Aggregated results for Modelo 100 casillas */
@@ -412,6 +414,10 @@ export interface TaxSummary {
     acquisitionValue: Decimal;
     /** Net gain/loss (1633 - 1637) */
     netGainLoss: Decimal;
+    /** Portion of FX loss deferred now by anti-churning (DGT V1613-25 / Art. 33.5.e) */
+    blockedLosses?: Decimal;
+    /** Prior deferred FX loss released this year upon subsequent conversion */
+    reintegratedLosses?: Decimal;
     /** Individual FX disposals */
     disposals: FxDisposal[];
   };
@@ -572,6 +578,14 @@ export interface FxDisposal {
    * broker, so it can differ from `brokerSource`. Absent for a missing-lots floor.
    */
   acquireBrokerSource?: string;
+  /** True if ANY part of this disposal's FX loss is deferred under DGT V1613-25 (Art. 33.5.e) */
+  washSaleBlocked?: boolean;
+  /** Portion of THIS disposal's loss deferred by anti-churning (DGT V1613-25 / Art. 33.5.e) */
+  blockedLossEur?: Decimal;
+  /** Re-acquisition dates within the 1-year window that caused the loss deferral */
+  washSaleMatchDates?: string[];
+  /** Prior deferred FX loss released because this disposal converted repurchased currency */
+  reintegratedLossEur?: Decimal;
 }
 
 /** Loss carryforward entry (Art. 49 LIRPF) */

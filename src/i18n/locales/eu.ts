@@ -250,6 +250,9 @@ const eu: TranslationKeys = {
   "profile.track_autoconvert_label": "Prozesatu artekariaren auto-bihurketak (AFx/FXCONV)",
   "profile.track_autoconvert_detail":
     "Lehenetsita aktibatuta. Interactive Brokersek ez du eurotara berriz bihurtzen akzio bat saltzean, beraz dibisa-saldoa erreala da eta gero bihurtzeak ondare-irabazi edo -galera sortzen du (LIRPF 33.1 art.). Desaktibatu soilik zure artekariak EUR↔dibisa round-trip osoa egiten badu eta dibisaren eragina alde batera utzi nahi baduzu.",
+  "profile.fx_wash_sale_label": "Dibisa-galerak urtebeteko birerosketan atzeratu (DGT V1613-25)",
+  "profile.fx_wash_sale_detail":
+    "PFEZ-ren 33.5.e artikuluko araua aplikatzen du V1613-25 kontsulta loteslearen arabera. Moneta-galerak ez dira zergaldian kengarriak hurrengo urtean moneta bera berriro eskuratzen bada; birerositako dibisa eskualdatzean integratuko dira.",
   "profile.titulares_label": "Titular kopurua:",
   "profile.titulares_detail":
     "Kontuak hainbat titular baditu (adib. kontu bateratua edo irabazpidezkoa), DeclaRentak zenbateko guztiak zati berdinetan banatzen ditu zergadun bakoitzari dagokion partea erakusteko (LIRPF 11.3 art.). Titular bakoitzak bere aitorpen indibiduala aurkezten du bere partearengatik.",

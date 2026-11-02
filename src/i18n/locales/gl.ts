@@ -249,6 +249,9 @@ const gl: TranslationKeys = {
   "profile.track_autoconvert_label": "Procesar as autoconversións do bróker (AFx/FXCONV)",
   "profile.track_autoconvert_detail":
     "Activado por defecto. Interactive Brokers non reconverte a euros ao vender unha acción, así que o saldo en divisa é real e convertelo despois xera unha ganancia ou perda patrimonial (art. 33.1 LIRPF). Desactívao só se o teu bróker fai un round-trip completo EUR↔divisa e queres ignorar o efecto da divisa.",
+  "profile.fx_wash_sale_label": "Diferir perdas en divisas por recompra en 1 ano (DGT V1613-25)",
+  "profile.fx_wash_sale_detail":
+    "Aplica a regra antielusión do Art. 33.5.e LIRPF segundo a consulta vinculante V1613-25. As perdas por cambio de divisa non se deducen no exercicio se volves adquirir esa mesma moeda dentro do ano posterior; integraranse cando transmitas a divisa recomprada.",
   "profile.titulares_label": "Número de titulares:",
   "profile.titulares_detail":
     "Se a conta ten varios titulares (p. ex. conta conxunta ou de gananciais), DeclaRenta divide todos os importes a partes iguais para amosar a parte que corresponde a cada contribuínte (Art. 11.3 LIRPF). Cada titular presenta a súa declaración individual pola súa parte.",

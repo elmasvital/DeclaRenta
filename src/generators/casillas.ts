@@ -132,16 +132,20 @@ export function computeCasillaBlocks(disposals: FifoDisposal[]): CasillaBlocks {
 export function computeCasillaBlocksWithFx(report: TaxSummary): CasillaBlocks {
   const { listedShares, otherElements } = computeCasillaBlocks(report.capitalGains.disposals);
   const fx = report.fxGains;
+  const fxBlocked = fx.blockedLosses ?? new Decimal(0);
+  const fxReintegrated = fx.reintegratedLosses ?? new Decimal(0);
+  const fxEffectiveNet = fx.netGainLoss.plus(fxBlocked).minus(fxReintegrated);
+
   const merged: CasillaBlock = {
     transmissionValue: otherElements.transmissionValue.plus(fx.transmissionValue),
     acquisitionValue: otherElements.acquisitionValue.plus(fx.acquisitionValue),
-    gains: fx.netGainLoss.greaterThanOrEqualTo(0)
-      ? otherElements.gains.plus(fx.netGainLoss)
+    gains: fxEffectiveNet.greaterThanOrEqualTo(0)
+      ? otherElements.gains.plus(fxEffectiveNet)
       : otherElements.gains,
-    losses: fx.netGainLoss.lessThan(0)
-      ? otherElements.losses.plus(fx.netGainLoss.abs())
+    losses: fxEffectiveNet.lessThan(0)
+      ? otherElements.losses.plus(fxEffectiveNet.abs())
       : otherElements.losses,
-    netGainLoss: otherElements.netGainLoss.plus(fx.netGainLoss),
+    netGainLoss: otherElements.netGainLoss.plus(fxEffectiveNet),
     count: otherElements.count + fx.disposals.length,
   };
   return { listedShares, otherElements: merged };

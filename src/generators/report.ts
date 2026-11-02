@@ -22,6 +22,7 @@ import type { EcbRateMap } from "../types/ecb.js";
 import { FifoEngine } from "../engine/fifo.js";
 import { FxFifoEngine } from "../engine/fx-fifo.js";
 import { detectWashSales } from "../engine/wash-sale.js";
+import { detectFxWashSales } from "../engine/fx-wash-sale.js";
 import { calculateDividends } from "../engine/dividends.js";
 import { collapseCorrections } from "../engine/cash-corrections.js";
 import { calculateDoubleTaxation } from "../engine/double-taxation.js";
@@ -80,6 +81,8 @@ function splitFxDisposal(d: FxDisposal, n: number): FxDisposal {
     proceedsEur: d.proceedsEur.div(n),
     costBasisEur: d.costBasisEur.div(n),
     gainLossEur: d.gainLossEur.div(n),
+    blockedLossEur: d.blockedLossEur?.div(n),
+    reintegratedLossEur: d.reintegratedLossEur?.div(n),
   };
 }
 
@@ -366,6 +369,12 @@ export interface ReportOptions {
    * normally and can be split across multiple dates/prices.
    */
   manualOpeningLots?: ManualOpeningLot[];
+  /**
+   * Strict FX anti-churning mode per DGT V1613-25 (Art. 33.5.e LIRPF).
+   * When true, FX losses are blocked proportionally if the foreign currency
+   * is reacquired within 1 year following the disposal date.
+   */
+  fxWashSale?: boolean;
 }
 
 /**
@@ -594,6 +603,8 @@ export function generateTaxReport(
   let fxDisposals: ReturnType<FxFifoEngine["processEvents"]> = [];
   let fxTransmissionValue = new Decimal(0);
   let fxAcquisitionValue = new Decimal(0);
+  let fxBlockedLosses = new Decimal(0);
+  let fxReintegratedLosses = new Decimal(0);
   let fxMessagesList: TaxMessage[] = [];
   let fxTrace: FxTraceEvent[] | undefined;
 
@@ -622,18 +633,25 @@ export function generateTaxReport(
     );
     const manualOpeningLotFxEvents = FxFifoEngine.extractManualOpeningLotFxEvents(usableManualOpeningLots, rateMap);
     const stockProceedsFxEvents = FxFifoEngine.extractStockProceedsFxEvents(fifoEngine.getDisposals());
-    const allFxDisposals = fxEngine.processEvents([
+    const allFxEvents = [
       ...tradeFxEvents,
       ...cashFxEvents,
       ...stockPurchaseFxEvents,
       ...manualOpeningLotFxEvents,
       ...stockProceedsFxEvents,
-    ]);
+    ];
+    const rawFxDisposals = fxEngine.processEvents(allFxEvents);
+    const fxWashResult = detectFxWashSales(rawFxDisposals, allFxEvents, {
+      enabled: options?.fxWashSale === true,
+    });
+    const allFxDisposals = fxWashResult.disposals;
     fxDisposals = allFxDisposals.filter((d) => d.disposeDate.startsWith(yearStr));
     if (titulares > 1) fxDisposals = fxDisposals.map((d) => splitFxDisposal(d, titulares));
 
     fxTransmissionValue = fxDisposals.reduce((sum, d) => sum.plus(d.proceedsEur), new Decimal(0));
     fxAcquisitionValue = fxDisposals.reduce((sum, d) => sum.plus(d.costBasisEur), new Decimal(0));
+    fxBlockedLosses = fxDisposals.reduce((sum, d) => sum.plus(d.blockedLossEur ?? 0), new Decimal(0));
+    fxReintegratedLosses = fxDisposals.reduce((sum, d) => sum.plus(d.reintegratedLossEur ?? 0), new Decimal(0));
 
     // Only show FX warnings when there are FX disposals in the target year.
     // Undated warnings (missing lots summaries) refer to events across all years —
@@ -645,6 +663,9 @@ export function generateTaxReport(
         (m) => m.message,
         (m) => m.context,
       );
+    }
+    if (fxWashResult.messages.length > 0) {
+      fxMessagesList.push(...fxWashResult.messages);
     }
     // The trace is the FULL all-year movement ledger (audit artifact, not
     // year-filtered) so a lot's whole lifecycle reconciles. Present only on opt-in.
@@ -659,8 +680,12 @@ export function generateTaxReport(
   // reintegrated (now-released) prior deferred loss. This is the fiscal base, not
   // the raw netGainLoss — blocked losses no longer silently reduce the base.
   const fiscalCapitalGains = transmissionValue.minus(acquisitionValue).plus(blockedLosses).minus(reintegratedLosses);
+  const fiscalFxGains = fxTransmissionValue
+    .minus(fxAcquisitionValue)
+    .plus(fxBlockedLosses)
+    .minus(fxReintegratedLosses);
   const totalSavingsBase = Decimal.max(fiscalCapitalGains, 0)
-    .plus(Decimal.max(fxTransmissionValue.minus(fxAcquisitionValue), 0))
+    .plus(Decimal.max(fiscalFxGains, 0))
     .plus(grossDividends)
     .plus(interestEarned);
   const doubleTaxation = calculateDoubleTaxation(dividendEntries, year, totalSavingsBase);
@@ -799,6 +824,8 @@ export function generateTaxReport(
     doubleTaxationDeduction: doubleTaxation.total,
     fxTransmissionValue,
     fxAcquisitionValue,
+    fxBlockedLosses,
+    fxReintegratedLosses,
   });
   if (nonFiniteFields.length > 0) {
     allMessages.push({
@@ -816,6 +843,7 @@ export function generateTaxReport(
       monodivisa: options?.skipFx === true,
       trackAutoConvert: options?.trackAutoConvert !== false,
       titulares,
+      ...(options?.fxWashSale ? { fxWashSale: true } : {}),
     },
     messages: allMessages,
     unresolvedCryptoValuations: yearUnresolvedCrypto.length > 0 ? yearUnresolvedCrypto : undefined,
@@ -850,6 +878,8 @@ export function generateTaxReport(
       transmissionValue: t.fxTransmissionValue,
       acquisitionValue: t.fxAcquisitionValue,
       netGainLoss: t.fxTransmissionValue.minus(t.fxAcquisitionValue),
+      blockedLosses: t.fxBlockedLosses,
+      reintegratedLosses: t.fxReintegratedLosses,
       disposals: fxDisposals,
     },
     ...(fxTrace ? { fxTrace } : {}),

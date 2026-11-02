@@ -220,6 +220,10 @@ program
     "--fx-trace [file]",
     "Volcar la traza de movimientos del motor FX (acuñar/aparcar/desaparcar/descartar/convertir) para auditoría. Sin valor → stderr; con ruta → fichero.",
   )
+  .option(
+    "--fx-wash-sale",
+    "Aplica el diferimiento de pérdidas por cambio de divisa según DGT V1613-25 (Art. 33.5.e LIRPF) si se recompra la misma divisa en el año posterior",
+  )
   .addOption(new Option("--fx-trace-format <format>", "Formato de la traza FX").choices(["jsonl", "csv"]).default("jsonl"))
   .action(
     async (opts: {
@@ -235,6 +239,7 @@ program
       cryptoRates?: string;
       fxTrace?: string | boolean;
       fxTraceFormat?: string;
+      fxWashSale?: boolean;
     }) => {
       try {
         console.error(`DeclaRenta v${pkg.version} - Ejercicio ${opts.year}, ${opts.input.length} fichero(s)...`);
@@ -289,9 +294,13 @@ program
           titulares: opts.titulares,
           manualRates,
           fxTrace: opts.fxTrace !== undefined && opts.fxTrace !== false,
+          fxWashSale: opts.fxWashSale,
         });
         if (opts.titulares && opts.titulares > 1) {
           console.error(`  Titulares: ${opts.titulares} (importes divididos por contribuyente)`);
+        }
+        if (opts.fxWashSale) {
+          console.error("  Antichurning divisas (DGT V1613-25): activado");
         }
 
         // 3b. Apply loss carryforward if prior losses provided

@@ -49,7 +49,7 @@ export interface TaxableBaseResult {
  */
 export interface TaxableBaseReport {
   capitalGains: { netGainLoss: Decimal; blockedLosses: Decimal; reintegratedLosses: Decimal };
-  fxGains: { netGainLoss: Decimal };
+  fxGains: { netGainLoss: Decimal; blockedLosses?: Decimal; reintegratedLosses?: Decimal };
   dividends: { grossIncome: Decimal };
   interest: { earned: Decimal };
 }
@@ -61,11 +61,15 @@ export interface TaxableBaseReport {
  * - `income`: gross dividends + interest earned.
  */
 export function savingsBalances(report: TaxableBaseReport): { gains: Decimal; income: Decimal } {
+  const fxBlocked = report.fxGains.blockedLosses ?? new Decimal(0);
+  const fxReintegrated = report.fxGains.reintegratedLosses ?? new Decimal(0);
   return {
     gains: report.capitalGains.netGainLoss
       .plus(report.capitalGains.blockedLosses)
       .minus(report.capitalGains.reintegratedLosses)
-      .plus(report.fxGains.netGainLoss),
+      .plus(report.fxGains.netGainLoss)
+      .plus(fxBlocked)
+      .minus(fxReintegrated),
     income: report.dividends.grossIncome.plus(report.interest.earned),
   };
 }
@@ -86,7 +90,8 @@ export function computeTaxableBaseBreakdown(report: TaxableBaseReport): TaxableB
   const fxGains = report.fxGains.netGainLoss;
   const dividends = report.dividends.grossIncome;
   const interest = report.interest.earned;
-  const blockedLosses = report.capitalGains.blockedLosses;
+  const fxBlockedLosses = report.fxGains.blockedLosses ?? new Decimal(0);
+  const blockedLosses = report.capitalGains.blockedLosses.plus(fxBlockedLosses);
 
   const { gains, income } = savingsBalances(report);
   const offset = offsetCurrentYearLosses(gains, income);

@@ -284,7 +284,12 @@ let activeYear: number | null = null;
 let lastRunSettings: ReportSettings | null = null;
 
 function settingsFromProfile(p: FiscalProfile): ReportSettings {
-  return { monodivisa: p.monodivisa, trackAutoConvert: p.trackAutoConvert, titulares: p.titulares };
+  return {
+    monodivisa: p.monodivisa,
+    trackAutoConvert: p.trackAutoConvert,
+    titulares: p.titulares,
+    ...(p.fxWashSale ? { fxWashSale: true } : {}),
+  };
 }
 /**
  * The year of the results currently rendered on the Results step, or null when
@@ -857,6 +862,7 @@ async function processFiles(): Promise<void> {
       skipFx: profileForReport.monodivisa,
       trackAutoConvert: profileForReport.trackAutoConvert,
       titulares: profileForReport.titulares,
+      fxWashSale: profileForReport.fxWashSale,
       manualRates: getManualRates(),
       // Opt-in FX-FIFO movement trace, captured in the SAME run only in hidden
       // diagnostic mode. False by default → zero cost, normal path unchanged.
