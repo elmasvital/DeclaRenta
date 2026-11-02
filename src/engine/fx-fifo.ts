@@ -1524,7 +1524,6 @@ export class FxFifoEngine {
         const x = Decimal.min(need, p.q);
         const give = Decimal.min(x, readd.minus(placed));
         let reAddedLot: FxLot | undefined;
-        let reAddDate: string | undefined;
         if (give.greaterThan(EPS)) {
           const reAddRate = p.rate === null ? saleRate : p.rate;
           // Re-add the principal at its ORIGINAL acquisition date (carried through
@@ -1550,7 +1549,7 @@ export class FxFifoEngine {
             quantityFcy: give,
             rate: p.rate === null ? saleRate : p.rate,
             lotId: reAddedLot?.id,
-            lotAcquireDate: reAddDate,
+            lotAcquireDate: reAddedLot?.acquireDate,
             note: p.rate === null ? "uncovered → re-añadido al tipo de venta" : undefined,
           });
           this.accumulate("unpark", event.currency, give);
@@ -1580,7 +1579,7 @@ export class FxFifoEngine {
         quantityFcy: g,
         rate: saleRate,
         lotId: unparkLot?.id,
-        lotAcquireDate: event.date,
+        lotAcquireDate: unparkLot?.acquireDate,
         note: "venta sin compra rastreada → re-añadido al tipo de venta (full-proceeds)",
       });
       this.accumulate("unpark", event.currency, g);
@@ -1599,7 +1598,7 @@ export class FxFifoEngine {
         quantityFcy: profit,
         rate: saleRate,
         lotId: profitLot?.id,
-        lotAcquireDate: event.date,
+        lotAcquireDate: profitLot?.acquireDate,
       });
       this.accumulate("profit", event.currency, profit);
     }
@@ -1623,7 +1622,7 @@ export class FxFifoEngine {
         quantityFcy: profit,
         rate: saleRate,
         lotId: profitLot?.id,
-        lotAcquireDate: event.date,
+        lotAcquireDate: profitLot?.acquireDate,
         note: "plusvalía en venta de acciones",
       });
       this.accumulate("profit", event.currency, profit);
